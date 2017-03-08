@@ -3,8 +3,8 @@
     Quickly enumerate local domain using PowerSploit's PowerView and combine into XLSX
 .DESCRIPTION 
     Learning powershell scripting, and this came about.
-	Its not a script yet (with parameters and such).
-	Credit goes contributers of PowerView
+	Its not full blown script yet (with parameters and such).
+	Credit goes to contributers of PowerView
 .NOTES 
 .LINK 
 	PowerSploit PowerView
@@ -15,6 +15,9 @@
 .EXAMPLE 
     iex('.\PowEnum.ps1'}
 #>
+
+Write-Host "To run from a non-domain joined system:" -ForegroundColor Cyan
+Write-Host "runas /netonly /user:DOMAIN\USERNAME powershell.exe"
 
 #Start Stopwatch
 $stopwatch = [system.diagnostics.stopwatch]::startnew()
@@ -33,73 +36,73 @@ Write-Host "Starting Enumeration: $domain" -ForegroundColor Cyan
 
 Write-Host "[ ]Domain Controllers | " -NoNewLine
 $temp = Get-DomainController -Domain $domain 
-$temp | Export-Csv -NoTypeInformation .\01_DCs.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\01_DCs.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]Domain Admins | " -NoNewLine
 $temp = Get-DomainGroupMember -Identity "Domain Admins" -Domain $domain
-$temp | Export-CSV -NoTypeInformation .\02_DAs.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\02_DAs.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]Enterprise Admins | " -NoNewLine
 $temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Domain $domain
-$temp  | Export-CSV -NoTypeInformation .\03_EAs.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\03_EAs.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]Builtin Administrators | " -NoNewLine
 $temp = Get-DomainGroupMember -Identity "Administrators" -Domain $domain
-$temp | Export-CSV -NoTypeInformation .\04_Admins.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\04_BltAdmins.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All Domain Users | " -NoNewLine
 $temp = Get-DomainUser -Domain $domain
-$temp | Export-CSV -NoTypeInformation .\05_Users.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\05_Users.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All Domain Groups | " -NoNewLine
 $temp = Get-DomainGroup -Domain $domain
-$temp | Export-CSV -NoTypeInformation .\06_Groups.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\06_Groups.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All Domain Computers | " -NoNewLine
 $temp = Get-NetComputer -Domain $domain
-$temp | Export-CSV -NoTypeInformation .\07_Computers.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\07_Computers.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All Domain Computer IP Addresses  | " -NoNewLine
 $temp = Get-DomainComputer -Domain $domain | Get-IPAddress
-$temp | Export-CSV -NoTypeInformation .\08_IPs.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\08_IPs.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All Domain Controller Local Admins | " -NoNewLine
 $temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember
-$temp | Export-CSV -NoTypeInformation .\09_DCLocalAdmins.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\09_DCLocalAdmins.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All Domain Subnets | " -NoNewLine
 $temp = Get-DomainSubnet -Domain $domain
-$temp | Export-CSV -NoTypeInformation .\10_Subnets.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\10_Subnets.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All DNS Zones & Records | " -NoNewLine
 $temp = Get-DomainDNSZone -Domain $domain | Get-DomainDNSRecord
-$temp | Export-CSV -NoTypeInformation .\11_DNSRecords.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\11_DNSRecords.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
 Write-Host "[ ]All High Value Targets | " -NoNewLine
 $temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember | Select-Object -ExpandProperty MemberName | %{$_ -replace '^[^\\]*\\', ''} | Get-DomainGroupMember -Recurse
-$temp | Export-CSV -NoTypeInformation .\12_HVTs.csv
+if($temp -ne $null){$temp | Export-CSV -NoTypeInformation .\12_HVTs.csv}
 $count = $temp | measure-object | select-object -expandproperty Count
 Write-Host "$count Identified" -ForegroundColor Green
 
