@@ -1,24 +1,57 @@
+#requires -version 2
+
 function Invoke-PowEnum
 {
 <# 
-.SYNOPSIS 
-    Quickly enumerate domain info using PowerSploit's PowerView and combine into XLSX
-.DESCRIPTION 
-    I've been teaching myself PowerShell scripting and this came about.
-	Credit goes to contributers of PowerView for making a great tool.
-.NOTES 
-	Requires Excel to be installed on the systems running this script.
-	TODO:
-		Add speciality user enum to user xls (http://www.netvision.com/ad_useraccountcontrol.php)
+	.SYNOPSIS 
+		Enumerates and exports AD data using PowerView into a .xlsx
+        Author: Andrew Allen
+        License: BSD 3-Clause
+		
+	.DESCRIPTION 
+		Enumerates domain info using PowerSploit's PowerView
+		then combines the exported .csv's into a .xslx
+		Credit goes to contributers of PowerView for making a great tool.
+		
+	.NOTES 
+		Requires Excel to be installed on the systems running this script.	
+
+	.LINK 
+		PowerSploit PowerView: https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
+		Export to CSV: https://gist.github.com/gregklee/b01348787af0b47d8b30
 	
-.LINK 
-	PowerSploit PowerView
-	https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
+	.PARAMETER Domain
+
+		Specifies the domain to use, defaults to the current domain.
+		
+	.PARAMETER Mode
 	
-	Export to CSV
-	https://gist.github.com/gregklee/b01348787af0b47d8b30
-.EXAMPLE 
-    Invoke-PowEnum -Domain test.com
+		DCOnly: Basic Enumeration
+		Hunting: Admin Enumeration and User Hunting
+		Roasting: Kerberoast and ASREPRoast
+		LargeEnv: Basic Enumeration without Get-DomainUser/Group/Computer
+		Special: Enumerates Users With Specific Account Attributes:
+			Disabled Account
+			Enabled, Password Not Required
+			Enabled, Password Doesn't Expire
+			Enabled, Password Doesn't Expire & Not Required
+			Enabled, Smartcard Required
+			Enabled, Smartcard Required, Password Not Required
+			Enabled, Smartcard Required, Password Doesn't Expir
+		
+	.EXAMPLE 
+		
+		PS C:\> Invoke-PowEnum -Domain test.com
+		
+		Perform basic enumeration for a specific domain. 
+		Default mode (DCOnly) only communicates with the DC(s)
+		
+	.EXAMPLE	
+		
+		PS C:\> Invoke-PowEnum -Domain test.com -Mode Special
+		
+		Perform enumeration of user accounts with specific attributes:
+
 #>
 
 [CmdletBinding(DefaultParameterSetName="Domain")]
@@ -28,7 +61,7 @@ Param(
 	$Domain,
 	
 	[Parameter(Position = 1)]
-	[ValidateSet('DCOnly', 'Hunting', 'Roasting', 'LargeEnv')]
+	[ValidateSet('DCOnly', 'Hunting', 'Roasting', 'LargeEnv', 'Special')]
     [String]
     $Mode = 'DCOnly'
 )
@@ -56,6 +89,7 @@ Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan
 $ErrorActionPreference = 'Continue'
 $WarningPreference = "SilentlyContinue"
 
+#Set up spreadsheet arrary and count
 $script:ExportSheetCount = 1
 $script:ExportSheetFileArray = @()
 
@@ -67,9 +101,9 @@ if ($Mode -eq 'DCOnly') {
 	PowEnum-DAs
 	PowEnum-EAs
 	PowEnum-BltAdmins
-	PowEnum-Users
 	PowEnum-DCLocalAdmins
 	PowEnum-HVTs
+	PowEnum-Users
 	PowEnum-Groups
 	PowEnum-ExcelFile -SpreadsheetName DCOnly-UsersAndGroups
 	
@@ -106,6 +140,17 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-HVTs
 	PowEnum-NetSess
 	PowEnum-ExcelFile -SpreadsheetName LargeEnvironment
+}
+elseif ($Mode -eq 'Special') {
+	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
+	PowEnum-Disabled
+	PowEnum-PwNotReq
+	PowEnum-PwNotExp
+	PowEnum-PwNotExpireNotReq
+	PowEnum-SmartCardReq
+	PowEnum-SmartCardReqPwNotReq
+	PowEnum-SmartCardReqPwNotExp
+	PowEnum-ExcelFile -SpreadsheetName Special
 }
 else {
 	Write-Host "Incorrect Mode Selected"
@@ -213,11 +258,67 @@ function PowEnum-AdminEnum{
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
-function PowEnum-Kerberoast {
+function PowEnum-Disabled {
 	try{
-		Write-Host "[ ]Kerberoast | " -NoNewLine
-		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $domain -WarningAction silentlyContinue
-		PowEnum-ExportAndCount -TypeEnum Kerberoast
+		Write-Host "[ ]Disabled Account | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '514'} 
+		PowEnum-ExportAndCount -TypeEnum Disabled
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-PwNotReq {
+	try{
+		Write-Host "[ ]Enabled, Password Not Required | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '544'} 
+		PowEnum-ExportAndCount -TypeEnum PwNotReq
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-PwNotExp {
+	try{
+		Write-Host "[ ]Enabled, Password Doesn't Expire | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66048'} 
+		PowEnum-ExportAndCount -TypeEnum PwNotExpire
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-PwNotExpireNotReq {
+	try{
+		Write-Host "[ ]Enabled, Password Doesn't Expire & Not Required | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66080'} 
+		PowEnum-ExportAndCount -TypeEnum PwNotExpireNotReq
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-SmartCardReq {
+	try{
+		Write-Host "[ ]Enabled, Smartcard Required | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262656'} 
+		PowEnum-ExportAndCount -TypeEnum SmartCardReq
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-SmartCardReqPwNotReq {
+	try{
+		Write-Host "[ ]Enabled, Smartcard Required, Password Not Required | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262688'} 
+		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotReq
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-SmartCardReqPwNotExp {
+	try{
+		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328192'} 
+		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExp
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-SmartCardReqPwNotExpNotReq {
+	try{
+		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire & Not Required | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328224'} 
+		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExpNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
@@ -232,6 +333,14 @@ function PowEnum-ASREPRoast {
 		Write-Host "[ ]ASREProast | " -NoNewLine
 		$temp = Invoke-ASREPRoast -Domain $domain
 		PowEnum-ExportAndCount -TypeEnum ASREPRoast
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-Kerberoast {
+	try{
+		Write-Host "[ ]Kerberoast | " -NoNewLine
+		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $domain -WarningAction silentlyContinue
+		PowEnum-ExportAndCount -TypeEnum Kerberoast
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
@@ -261,8 +370,7 @@ function PowEnum-ExportAndCount {
 	$script:ExportSheetCount++
 }
 
-function PowEnum-ExcelFile
-{
+function PowEnum-ExcelFile {
 	Param(
 		[Parameter(Position = 0, Mandatory = $True)]
 		[String]
@@ -325,6 +433,7 @@ function PowEnum-ExcelFile
 		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($workbooks) | Out-Null
 		$Excel.Quit()
 		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Excel) | Out-Null
+		$CSVSheet--
 		Write-Host " $CSVSheet Sheeet(s) Processed" -ForegroundColor Green
 		[System.GC]::Collect()
 		[System.GC]::WaitForPendingFinalizers()
