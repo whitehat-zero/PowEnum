@@ -10,11 +10,11 @@ function Invoke-PowEnum
 		
 	.DESCRIPTION 
 		Enumerates domain info using PowerSploit's PowerView
-		then combines the exported .csv's into a .xslx
-		Credit goes to contributers of PowerView for making a great tool.
+		then combines the exported .csv's into a tabbed spreadsheet.
 		
 	.NOTES 
-		Requires Excel to be installed on the systems running this script.	
+		Requires Excel to be installed on your system.	
+		I've been on a lot of internal pentests	and found that I'm often enumerating environments using common PowerView commands then putting them into spreadsheets to analyze using filters and VLookup. Instead of doing this manually, this script will automate that process so you can dig through the massive amount of data available.
 
 	.LINK 
 		PowerSploit PowerView: https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
@@ -41,14 +41,19 @@ function Invoke-PowEnum
 		
 	.EXAMPLE 
 		
+		PS C:\> Invoke-PowEnum
+		
+		Default mode (DCOnly) only communicates with the DC(s) on the local domain
+	
+	.EXAMPLE	
+		
 		PS C:\> Invoke-PowEnum -Domain test.com
 		
 		Perform basic enumeration for a specific domain. 
-		Default mode (DCOnly) only communicates with the DC(s)
 		
 	.EXAMPLE	
 		
-		PS C:\> Invoke-PowEnum -Domain test.com -Mode Special
+		PS C:\> Invoke-PowEnum -Mode Special
 		
 		Perform enumeration of user accounts with specific attributes:
 
@@ -101,7 +106,6 @@ if ($Mode -eq 'DCOnly') {
 	PowEnum-DAs
 	PowEnum-EAs
 	PowEnum-BltAdmins
-	PowEnum-DCLocalAdmins
 	PowEnum-HVTs
 	PowEnum-Users
 	PowEnum-Groups
@@ -134,7 +138,6 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-EAs
 	PowEnum-BltAdmins
 	PowEnum-IPs
-	PowEnum-DCLocalAdmins
 	PowEnum-Subnets
 	PowEnum-DNSRecords
 	PowEnum-HVTs
@@ -164,43 +167,44 @@ Write-Host "Exiting..." -ForegroundColor Yellow
 
 function PowEnum-DCs {
 	Write-Host "[ ]Domain Controllers | " -NoNewLine
-	$temp = Get-DomainController -Domain $domain 
+	$temp = Get-DomainController -Domain $domain | Select-Object Name, IPAddress, Domain, Forest, OSVersion, SiteName
 	PowEnum-ExportAndCount -TypeEnum DCs
 }
 
 function PowEnum-DAs {
 	Write-Host "[ ]Domain Admins | " -NoNewLine
-	$temp = Get-DomainGroupMember -Identity "Domain Admins" -Domain $domain
+	$temp = Get-DomainGroupMember -Identity "Domain Admins" -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+
 	PowEnum-ExportAndCount -TypeEnum DAs
 }
 
 function PowEnum-EAs {
 	Write-Host "[ ]Enterprise Admins | " -NoNewLine
-	$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Domain $domain
+	$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 	PowEnum-ExportAndCount -TypeEnum EAs
 }
 
 function PowEnum-BltAdmins {
 	Write-Host "[ ]Builtin Administrators | " -NoNewLine
-	$temp = Get-DomainGroupMember -Identity "Administrators" -Domain $domain
+	$temp = Get-DomainGroupMember -Identity "Administrators" -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 	PowEnum-ExportAndCount -TypeEnum BltAdmins
 }
 
 function PowEnum-Users {
 	Write-Host "[ ]All Domain Users | " -NoNewLine
-	$temp = Get-DomainUser -Domain $domain
+	$temp = Get-DomainUser -Domain $domain | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 	PowEnum-ExportAndCount -TypeEnum Users
 }
 
 function PowEnum-Groups {
 	Write-Host "[ ]All Domain Groups | " -NoNewLine
-	$temp = Get-DomainGroup -Domain $domain
+	$temp = Get-DomainGroup -Domain $domain | Select-Object samaccountname, admincount, description, iscriticalsystemobject
 	PowEnum-ExportAndCount -TypeEnum Groups
 }
 
 function PowEnum-Computers {
 	Write-Host "[ ]All Domain Computers | " -NoNewLine
-	$temp = Get-NetComputer -Domain $domain
+	$temp = Get-NetComputer -Domain $domain | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname
 	PowEnum-ExportAndCount -TypeEnum Computers
 }
 
@@ -230,14 +234,14 @@ function PowEnum-DNSRecords {
 
 function PowEnum-HVTs {
 	Write-Host "[ ]High Value Targets | " -NoNewLine
-	$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember | Select-Object -ExpandProperty MemberName | %{$_ -replace '^[^\\]*\\', ''} | Get-DomainGroupMember -Recurse
+	$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember | Select-Object -ExpandProperty MemberName | %{$_ -replace '^[^\\]*\\', ''} | Get-DomainGroupMember -Recurse | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 	PowEnum-ExportAndCount -TypeEnum HVTs
 }
 
 function PowEnum-NetSess {
 	try {
 		Write-Host "[ ]Net Sessions | " -NoNewLine
-		$temp = Get-DomainController -Domain $domain | Get-NetSession
+		$temp = Get-DomainController -Domain $domain | Get-NetSession | ?{$_.UserName -notlike "*$"}
 		PowEnum-ExportAndCount -TypeEnum NetSess
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -261,7 +265,7 @@ function PowEnum-AdminEnum{
 function PowEnum-Disabled {
 	try{
 		Write-Host "[ ]Disabled Account | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '514'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '514'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum Disabled
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -269,7 +273,7 @@ function PowEnum-Disabled {
 function PowEnum-PwNotReq {
 	try{
 		Write-Host "[ ]Enabled, Password Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '544'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '544'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum PwNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -277,7 +281,7 @@ function PowEnum-PwNotReq {
 function PowEnum-PwNotExp {
 	try{
 		Write-Host "[ ]Enabled, Password Doesn't Expire | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66048'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66048'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum PwNotExpire
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -285,7 +289,7 @@ function PowEnum-PwNotExp {
 function PowEnum-PwNotExpireNotReq {
 	try{
 		Write-Host "[ ]Enabled, Password Doesn't Expire & Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66080'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66080'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum PwNotExpireNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -293,7 +297,7 @@ function PowEnum-PwNotExpireNotReq {
 function PowEnum-SmartCardReq {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262656'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262656'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -301,7 +305,7 @@ function PowEnum-SmartCardReq {
 function PowEnum-SmartCardReqPwNotReq {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required, Password Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262688'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262688'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -309,7 +313,7 @@ function PowEnum-SmartCardReqPwNotReq {
 function PowEnum-SmartCardReqPwNotExp {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328192'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328192'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExp
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -317,7 +321,7 @@ function PowEnum-SmartCardReqPwNotExp {
 function PowEnum-SmartCardReqPwNotExpNotReq {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire & Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328224'} 
+		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328224'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExpNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -378,7 +382,7 @@ function PowEnum-ExcelFile {
 	)
 	
 	try {
-		Write-Host "[ ]Combining CSV Files to XSLX | " -NoNewLine
+		Write-Host "[ ]Combining csv file(s) to xlsx | " -NoNewLine
 		
 		#Exit if enumeration resulting in nothing
 		if($script:ExportSheetFileArray.Count -eq 0){Write-Host "Exiting: No Data Identified" -ForegroundColor Red; Return}
@@ -413,7 +417,7 @@ function PowEnum-ExcelFile {
 			$worksheet.QueryTables.item($Connector.name).delete()
 
 			# Autofit the columns, freeze the top row
-			$worksheet.UsedRange.EntireColumn.AutoFit() | Out-Null
+			$worksheet.UsedRange.EntireColumn.ColumnWidth = 15
 			$worksheet.Application.ActiveWindow.SplitRow = 1
 			$worksheet.Application.ActiveWindow.FreezePanes = $true
 
@@ -434,8 +438,9 @@ function PowEnum-ExcelFile {
 		$Excel.Quit()
 		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Excel) | Out-Null
 		$CSVSheet--
-		Write-Host " $CSVSheet Sheeet(s) Processed" -ForegroundColor Green
+		Write-Host "$CSVSheet Sheeet(s) Processed" -ForegroundColor Green
 		[System.GC]::Collect()
 		[System.GC]::WaitForPendingFinalizers()
+		
 	}catch{Write-Host "Error" -ForegroundColor Red}
 }
