@@ -1,3 +1,2 @@
 # PowEnum
-(WORK IN PROGRESS)
-Executes common PowerSploit Powerview functionaility and then combines output into a spreadsheet.
+Executes common PowerSploit Powerview functions and then combines the output into a spreadsheet.
