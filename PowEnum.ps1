@@ -182,7 +182,6 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-IPs
 	PowEnum-Subnets
 	PowEnum-DNSRecords
-	PowEnum-HVTs
 	PowEnum-NetSess
 	PowEnum-ExcelFile -SpreadsheetName LargeEnvironment
 }
