@@ -1,6 +1,6 @@
 # PowEnum
 
-Executes common PowerSploit Powerview functions and then combines the output into a spreadsheet.
+Executes common PowerSploit Powerview functions and then combines the output into a spreadsheet for easy analysis.
 
 #### Syntax Examples:
   - Invoke-PowEnum
@@ -15,4 +15,5 @@ Executes common PowerSploit Powerview functions and then combines the output int
 | ------ | ------ |
 | Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins<br>Domain Users<br>Domain Groups<br>All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts |
 | Roasting | Kerberoast Service Accounts<br>ASREPRoast User Accounts |
-| LargeEnv | Disabled Account<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
+| LargeEnv | Basic Enumeration without Get-DomainUser/Get-DomainGroup/Get-DomainComputer |
+| Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
