@@ -1,6 +1,6 @@
 # PowEnum
 
-Executes common PowerSploit Powerview functions and then combines the output into a spreadsheet for easy analysis.
+Executes common PowerSploit Powerview functions and then combines the output into a spreadsheet for easy analysis. All network traffic is only sent to the DC(s).
 
 #### Syntax Examples:
   - Invoke-PowEnum
@@ -17,3 +17,6 @@ Executes common PowerSploit Powerview functions and then combines the output int
 | Roasting | Kerberoast Service Accounts<br>ASREPRoast User Accounts |
 | LargeEnv | Basic Enumeration without Get-DomainUser/Get-DomainGroup/Get-DomainComputer |
 | Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
+
+### Note
+This enumeration is noisy if there are security products watching traffic to the DC(s) (i.e. Microsoft ATA)
