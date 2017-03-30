@@ -342,7 +342,7 @@ function PowEnum-NetSess {
 function PowEnum-WinRM {
 	try {
 		Write-Host "[ ]WinRm (Powershell Remoting) Enabled Hosts | " -NoNewLine
-		$temp = Get-DomainComputer -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties dnshostname,operatingsystem,distinguishedname
+		$temp = Get-DomainComputer -Domain $domain -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties dnshostname,operatingsystem,distinguishedname
 		PowEnum-ExportAndCount -TypeEnum WinRM
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -498,7 +498,7 @@ function PowEnum-ExcelFile {
 			# Autofit the columns, freeze the top row
 			$worksheet.UsedRange.EntireColumn.ColumnWidth = 15
 			$worksheet.Application.ActiveWindow.SplitRow = 1
-			$worksheet.Application.ActiveWindow.FreezePanes = $true
+			#$worksheet.Application.ActiveWindow.FreezePanes = $true
 
 			# Set color & border to top header row
 			$Selection = $worksheet.cells.Item(1,1).EntireRow
