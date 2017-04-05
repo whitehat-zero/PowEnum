@@ -10,21 +10,20 @@ function Invoke-PowEnum
 		
 	.DESCRIPTION 
 		Enumerates domain info using PowerSploit's PowerView
-		then combines the exported .csv's into a tabbed spreadsheet.
+		then combines the exported .csv's into a tabbed .xlsx spreadsheet.
 		
 	.NOTES 
 		Requires Excel to be installed on your system. 
-		Requires PowerView for most of the functionality.
-		I'm often enumerating environments with compromised creds using common PowerView commands. Then I put them into spreadsheets to analyze using filters and vLookup. I developed this script to automate and expedite that process. 
-
+		Requires PowerView.
+		
 	.LINK 
-		Credit goes to:
+		Credit & inspiration goes to:
 		PowerSploit PowerView: https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
 		Export to CSV: https://gist.github.com/gregklee/b01348787af0b47d8b30
 	
-	.PARAMETER Domain
+	.PARAMETER FQDN
 
-		Specify the domain to use, defaults to the current domain.
+		Specify the FQDN to use, defaults to the current domain.
 		
 	.PARAMETER Mode
 	
