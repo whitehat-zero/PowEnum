@@ -413,7 +413,7 @@ function PowEnum-SmartCardReqPwNotExpNotReq {
 
 function PowEnum-ASREPRoast {
 	try{
-		Write-Host "[ ]ASREProast | " -NoNewLine
+		Write-Host "[ ]ASREProast (John Format) | " -NoNewLine
 		$temp = Invoke-ASREPRoast -Domain $domain
 		PowEnum-ExportAndCount -TypeEnum ASREPRoast
 	}catch {Write-Host "Error" -ForegroundColor Red}
@@ -421,7 +421,7 @@ function PowEnum-ASREPRoast {
 
 function PowEnum-Kerberoast {
 	try{
-		Write-Host "[ ]Kerberoast | " -NoNewLine
+		Write-Host "[ ]Kerberoast (Hashcat Format) | " -NoNewLine
 		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $domain -WarningAction silentlyContinue
 		PowEnum-ExportAndCount -TypeEnum Kerberoast
 	}catch {Write-Host "Error" -ForegroundColor Red}
