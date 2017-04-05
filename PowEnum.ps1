@@ -4,7 +4,7 @@ function Invoke-PowEnum
 {
 <# 
 	.SYNOPSIS 
-		Enumerates and exports AD data using PowerView into a .xlsx.
+		Enumerates and exports AD data using select PowerView functions and combines the output into a single .xlsx.
 		Author: Andrew Allen
 		License: BSD 3-Clause
 		
@@ -15,15 +15,16 @@ function Invoke-PowEnum
 	.NOTES 
 		Requires Excel to be installed on your system. 
 		Requires PowerView for most of the functionality.
-		I've been on a lot of internal pentests	and found that I'm often enumerating environments with compromised creds using common PowerView commands then putting them into spreadsheets to analyze using filters and VLookup. Instead of doing this manually, this script will automate that process. 
+		I'm often enumerating environments with compromised creds using common PowerView commands. Then I put them into spreadsheets to analyze using filters and vLookup. I developed this script to automate and expedite that process. 
 
 	.LINK 
+		Credit goes to:
 		PowerSploit PowerView: https://github.com/PowerShellMafia/PowerSploit/blob/dev/Recon/PowerView.ps1
 		Export to CSV: https://gist.github.com/gregklee/b01348787af0b47d8b30
 	
 	.PARAMETER Domain
 
-		Specifies the domain to use, defaults to the current domain.
+		Specify the domain to use, defaults to the current domain.
 		
 	.PARAMETER Mode
 	
@@ -53,13 +54,13 @@ function Invoke-PowEnum
 		
 		PS C:\> Invoke-PowEnum -URL http://10.0.0.10/PowerView.ps1
 		
-		Perform basic enumeration for a specific domain using PowerView at the set URL
+		Perform basic enumeration for a specific domain using PowerView.ps1 at the set URL
 		
 	.EXAMPLE	
 		
 		PS C:\> Invoke-PowEnum -Domain test.com
 		
-		Perform basic enumeration for a specific domain. 
+		Perform basic enumeration for a specific domain (use FQDN).
 		
 	.EXAMPLE	
 		
@@ -69,9 +70,9 @@ function Invoke-PowEnum
 	
 	.EXAMPLE	
 		
-		PS C:\> Invoke-PowEnum -Credential (Get-Credential) -Mode Special
+		PS C:\> Invoke-PowEnum -Credential test.domain.com\username -Mode Special
 		
-		Perform enumeration of user accounts with specific attributes using an alternate credential.
+		Perform enumeration of user accounts with specific attributes using an alternate credential. Be sure to use FQDN.
 #>
 
 [CmdletBinding(DefaultParameterSetName="Domain")]
@@ -497,7 +498,7 @@ function PowEnum-ExcelFile {
 
 			# Autofit the columns, freeze the top row
 			$worksheet.UsedRange.EntireColumn.ColumnWidth = 15
-			$worksheet.Application.ActiveWindow.SplitRow = 1
+			#$worksheet.Application.ActiveWindow.SplitRow = 1
 			#$worksheet.Application.ActiveWindow.FreezePanes = $true
 
 			# Set color & border to top header row
