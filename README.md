@@ -7,7 +7,7 @@ Executes common PowerSploit Powerview functions and then combines the output int
   - Invoke-PowEnum -URL http://10.0.0.10/PowerView.ps1
   - Invoke-PowEnum -Domain test.com
   - Invoke-PowEnum -Mode Special
-  - Invoke-PowEnum -Credential (Get-Credential) -Mode Special
+  - Invoke-PowEnum -Credential test.domain.com\username -Mode Special
 
 ### Modes
 
