@@ -74,11 +74,11 @@ function Invoke-PowEnum
 		Perform enumeration of user accounts with specific attributes using an alternate credential. Be sure to use FQDN.
 #>
 
-[CmdletBinding(DefaultParameterSetName="Domain")]
+[CmdletBinding(DefaultParameterSetName="FQDN")]
 Param(
 	[Parameter(Position = 0)]
 	[String]
-	$Domain,
+	$FQDN,
 	
 	[Parameter(Position = 1)]
 	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special')]
@@ -95,7 +95,8 @@ Param(
     $Credential
 )
 	
-	
+$Domain = $FQDN
+
 Write-Host "To run from a non-domain joined system:" -ForegroundColor Cyan
 Write-Host "runas /netonly /user:DOMAIN\USERNAME powershell.exe"
 
