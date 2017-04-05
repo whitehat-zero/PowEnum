@@ -18,5 +18,27 @@ Executes common PowerSploit Powerview functions and then combines the output int
 | LargeEnv | Basic Enumeration without Get-DomainUser/Get-DomainGroup/Get-DomainComputer |
 | Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
 
-### Note
+### Detection
 This enumeration is noisy if there are security products watching traffic to the DC(s) (i.e. Microsoft ATA)
+
+### Mitigations
+Net Cease - Hardening Net Session Enumeration
+https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5b
+SAMRi10 - Hardening SAM Remote Access in Windows 10/Server 2016
+https://gallery.technet.microsoft.com/SAMRi10-Hardening-Remote-48d94b5b
+
+## TODO
+- Check Credential For FQDN
+- Create ASREPRoast Url Parameter
+- Add Following Groups To Group Enumeration
+  - Schema Admin
+  - Account Operators
+  - Backup Operators
+  - Print Operators
+  - Server Operators
+  - Domain Controllers
+  - Read-only Domain Controllers
+  - Group Policy Creators Owners
+  - Cryptographic Operators
+- Add GPP and SYSVOL searching (.vbs, .bat, .cmd)
+
