@@ -82,9 +82,9 @@ Param(
 	$Domain,
 	
 	[Parameter(Position = 1)]
-	[ValidateSet('DCOnly', 'Roasting', 'LargeEnv', 'Special')]
+	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special')]
     [String]
-    $Mode = 'DCOnly',
+    $Mode = 'Basic',
 
 	[Parameter(Position = 2)]
     [String]
@@ -151,7 +151,7 @@ $script:ExportSheetCount = 1
 $script:ExportSheetFileArray = @()
 
 
-if ($Mode -eq 'DCOnly') {
+if ($Mode -eq 'Basic') {
 	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
 	$script:ExportSheetCount = 1
 	$script:ExportSheetFileArray = @()
