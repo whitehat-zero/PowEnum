@@ -518,7 +518,7 @@ function PowEnum-ExcelFile {
 		$Excel.Quit()
 		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Excel) | Out-Null
 		$CSVSheet--
-		Write-Host "$CSVSheet Sheeet(s) Processed" -ForegroundColor Green
+		Write-Host "$CSVSheet Sheet(s) Processed" -ForegroundColor Green
 		[System.GC]::Collect()
 		[System.GC]::WaitForPendingFinalizers()
 		
