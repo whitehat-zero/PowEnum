@@ -15,10 +15,11 @@ PowEnum executes common PowerSploit Powerview functions and combines the output 
 
 | Mode | Enumerates |
 | ------ | ------ |
-| Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins<br>Domain Users<br>Domain Groups<br>All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts |
+| Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins<br>Domain Users<br>Domain Groups<br>Schema Admin<br>Account Operators<br>Backup Operators<br>Print Operators<br>Server Operators<br>Domain Controllers<br>Read-only Domain Controllers<br>Group Policy Creators Owners<br>Cryptographic Operators<br><br>All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts |
 | Roasting | Kerberoast Service Accounts<br>ASREPRoast User Accounts |
 | LargeEnv | Basic Enumeration without Get-DomainUser/Get-DomainGroup/Get-DomainComputer |
 | Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
+| SYSVOL | Group Policy Passwords<br>Potential SYSVOL Logon Scripts|
 
 ### Detection
 This enumeration will generate a great deal of noise between the PowEnum system and the target DC(s). If there are security products watching traffic to the DC(s) (i.e. Microsoft ATA) PowEnum will likely get flagged.
@@ -32,15 +33,4 @@ https://gallery.technet.microsoft.com/SAMRi10-Hardening-Remote-48d94b5b
 ## TODO
 - Check Credential For FQDN
 - Create ASREPRoast Url Parameter
-- Add Following Groups To Group Enumeration
-  - Schema Admin
-  - Account Operators
-  - Backup Operators
-  - Print Operators
-  - Server Operators
-  - Domain Controllers
-  - Read-only Domain Controllers
-  - Group Policy Creators Owners
-  - Cryptographic Operators
-- Add GPP and SYSVOL searching (.vbs, .bat, .cmd)
 
