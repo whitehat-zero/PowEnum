@@ -22,7 +22,7 @@ PowEnum executes common PowerSploit Powerview functions and combines the output 
 | SYSVOL | Group Policy Passwords<br>Potential SYSVOL Logon Scripts|
 
 ### Detection
-This enumeration will generate a great deal of noise between the PowEnum system and the target DC(s). If there are security products watching traffic to the DC(s) (i.e. Microsoft ATA) PowEnum will likely get flagged.
+This enumeration will generate suspicious traffic between the PowEnum system and the target DC(s). If there are security products watching traffic to the DC(s) (i.e. Microsoft ATA) PowEnum will likely get flagged.
 
 ### Mitigations
   - Net Cease - Hardening Net Session Enumeration
