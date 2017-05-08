@@ -11,6 +11,11 @@ PowEnum executes common PowerSploit Powerview functions and combines the output 
   - Invoke-PowEnum -Mode Special
   - Invoke-PowEnum -Credential test.domain.com\username -FQDN test.domain.com -Mode Special
 
+### Running PowEnum From Non-Domain Joined System
+There are two choices. The first uses the runas command (this must be executed prior to using PowEnum). The second leverages the Invoke-UserImpersonation function in Powerview.
+1) runas /netonly /user:DOMAIN\USERNAME powershell.exe
+2) Invoke-PowEnum -Credential test.domain.com\username -FQDN test.domain.com
+
 ### Modes
 
 | Mode | Enumerates |
@@ -29,4 +34,3 @@ This enumeration will generate suspicious traffic between the PowEnum system and
 https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5b
   - SAMRi10 - Hardening SAM Remote Access in Windows 10/Server 2016
 https://gallery.technet.microsoft.com/SAMRi10-Hardening-Remote-48d94b5b
-
