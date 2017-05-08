@@ -257,7 +257,7 @@ if ($Credential -ne $null){
 	}catch{Write-Host "Error" -ForegroundColor Red; Return}
 }	
 
-Remove-Module Powerview
+if (Test-Path .\PowerView.ps1) {Remove-Module Powerview}
 
 $stopwatch.Stop()
 $elapsedtime = "{0:N0}" -f ($stopwatch.Elapsed.TotalSeconds)
