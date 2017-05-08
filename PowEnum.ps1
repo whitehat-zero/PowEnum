@@ -528,7 +528,7 @@ function PowEnum-Kerberoast {
 function PowEnum-GPPPassword {
 	try{
 		Write-Host "[ ]GPP Password(s) | " -NoNewLine
-		$temp = Get-GPPPassword
+		$temp = Get-GPPPassword -Server $FQDN
 		PowEnum-ExportAndCount -TypeEnum GPPPassword
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
