@@ -6,9 +6,9 @@ PowEnum executes common PowerSploit Powerview functions and combines the output 
 
 #### Syntax Examples:
   - Invoke-PowEnum
-  - Invoke-PowEnum -URL http://10.0.0.10/PowerView.ps1
+  - Invoke-PowEnum -PowerviewURL http://10.0.0.10/PowerView.ps1
   - Invoke-PowEnum -FQDN test.domain.com
-  - Invoke-PowEnum -Mode Special
+  - Invoke-PowEnum -Mode SYSVOL
   - Invoke-PowEnum -Credential test.domain.com\username -FQDN test.domain.com -Mode Special
 
 ### Running PowEnum From Non-Domain Joined System
