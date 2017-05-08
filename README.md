@@ -15,7 +15,7 @@ PowEnum executes common PowerSploit Powerview functions and combines the output 
 
 | Mode | Enumerates |
 | ------ | ------ |
-| Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins<br>Domain Users<br>Domain Groups<br>Schema Admin<br>Account Operators<br>Backup Operators<br>Print Operators<br>Server Operators<br>Domain Controllers<br>Read-only Domain Controllers<br>Group Policy Creators Owners<br>Cryptographic Operators<br><br>All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts |
+| Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins<br>Domain Users<br>Domain Groups<br>Schema Admin<br>Account Operators<br>Backup Operators<br>Print Operators<br>Server Operators<br>Group Policy Creators Owners<br>Cryptographic Operators<br><br>All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts |
 | Roasting | Kerberoast Service Accounts<br>ASREPRoast User Accounts |
 | LargeEnv | Basic Enumeration without Get-DomainUser/Get-DomainGroup/Get-DomainComputer |
 | Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
@@ -29,8 +29,4 @@ This enumeration will generate suspicious traffic between the PowEnum system and
 https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5b
   - SAMRi10 - Hardening SAM Remote Access in Windows 10/Server 2016
 https://gallery.technet.microsoft.com/SAMRi10-Hardening-Remote-48d94b5b
-
-## TODO
-- Check Credential For FQDN
-- Create ASREPRoast Url Parameter
 
