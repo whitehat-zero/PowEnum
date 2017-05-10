@@ -1,5 +1,3 @@
-Note: PowerView's current dev release has some bugs. I have put in a pull request fixing the bug but until then feel free to use this version. (Invoke-PowEnum -PowerViewURL https://raw.githubusercontent.com/whitehat-zero/PowerSploit/d03824424349192a6e5e1b275a220718e6128ab7/Recon/PowerView.ps1)
-
 # PowEnum
 
 Penetration testers commonly enumerate AD data – providing domain situational awareness and helping to identify soft targets.  PowEnum helps automate the cartological view of your target domain.
