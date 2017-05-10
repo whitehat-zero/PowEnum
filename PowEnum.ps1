@@ -85,7 +85,7 @@ Param(
 	$FQDN,
 	
 	[Parameter(Position = 1)]
-	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special', 'SYSVOL')]
+	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special', 'SYSVOL','Forest')]
     [String]
     $Mode = 'Basic',
 
@@ -112,34 +112,39 @@ $stopwatch = [system.diagnostics.stopwatch]::startnew()
 
 #Download PowerView from specified URL or from GitHub.
 try {
+	Write-Host "Downloading Powerview | " -NoNewLine
     if (Test-Path .\PowerView.ps1){
-	    Write-Host "Skipping Download: PowerView.ps1 present"
-        Import-Module .\PowerView.ps1    
+	    Write-Host "[Skipping Download] PowerView.ps1 present | "
+        Import-Module .\PowerView.ps1
+		Write-Host "Success" -ForegroundColor Green
 	}
 	else {	
         $webclient = New-Object System.Net.WebClient
         $webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-        Write-Host "Downloading Powerview:" -ForegroundColor Cyan
+        
         Write-Host "$PowerViewURL | " -NoNewLine
         IEX $webclient.DownloadString($PowerViewURL)
         Write-Host "Success" -ForegroundColor Green
     }
 }catch {Write-Host "Error" -ForegroundColor Red; Return}
-	
+
+
 #Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
 if ($Credential -ne $null){
 	try{
 		$NetworkCredential = $Credential.GetNetworkCredential()
-        $UserName = $NetworkCredential.UserName
-	Write-Host "Impersonate user: $FQDN\$Username | " -NoNewLine
+        $Domain = $NetworkCredential.Domain
+		$UserName = $NetworkCredential.UserName
+	Write-Host "Impersonate user: $Domain\$Username | " -NoNewLine
 	Invoke-UserImpersonation -Credential $Credential -WarningAction silentlyContinue | Out-Null
 	Write-Host "Success" -ForegroundColor Green 
 	}catch{Write-Host "Error" -ForegroundColor Red; Return}
 	
 }	
-	
+
 #Grab Local Domain
 if (!$FQDN) {$FQDN = (Get-Domain).Name}
+
 if (!$FQDN) {Write-Host "Unable to retrieve domain, exiting..." -ForegroundColor Red; Return}
 else {Write-Host "Enumeration Domain: $FQDN" -ForegroundColor Cyan}
 
@@ -150,7 +155,6 @@ $WarningPreference = "SilentlyContinue"
 #Set up spreadsheet arrary and count
 $script:ExportSheetCount = 1
 $script:ExportSheetFileArray = @()
-
 
 if ($Mode -eq 'Basic') {
 	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
@@ -167,6 +171,7 @@ if ($Mode -eq 'Basic') {
 	PowEnum-ServerOperators
 	PowEnum-GPCreatorsOwners
 	PowEnum-CryptographicOperators
+	PowEnum-GroupManagers
 	PowEnum-Users
 	PowEnum-Groups
 	PowEnum-ExcelFile -SpreadsheetName Basic-UsersAndGroups
@@ -176,10 +181,11 @@ if ($Mode -eq 'Basic') {
 	PowEnum-NetSess
 	PowEnum-DCs
 	PowEnum-IPs
-	PowEnum-Computers
 	PowEnum-Subnets
 	PowEnum-DNSRecords
     PowEnum-WinRM
+    PowEnum-FileServers
+	PowEnum-Computers
 	PowEnum-ExcelFile -SpreadsheetName Basic-HostsAndSessions
 }
 elseif ($Mode -eq 'Roasting') {
@@ -241,6 +247,13 @@ elseif ($Mode -eq 'SYSVOL') {
 	PowEnum-SYSVOLFiles
 	PowEnum-ExcelFile -SpreadsheetName SYSVOL
 }
+elseif ($Mode -eq 'Forest') {
+	Write-Host "Enumeration Mode: $Mode" -ForegroundColor Cyan
+	PowEnum-DomainTrusts
+	PowEnum-ForeignUsers
+	PowEnum-ForeignGroupMembers
+	PowEnum-ExcelFile -SpreadsheetName SYSVOL
+}
 else {
 	Write-Host "Incorrect Mode Selected"
 	Return
@@ -251,18 +264,24 @@ if ($Credential -ne $null){
 	try{
 		$NetworkCredential = $Credential.GetNetworkCredential()
         $UserName = $NetworkCredential.UserName
-	Write-Host "Reverting Token from: $FQDN\$Username | " -NoNewLine
-	Invoke-RevertToSelf | Out-Null
-	Write-Host "Success" -ForegroundColor Green 
+		Write-Host "Reverting Token from: $FQDN\$Username | " -NoNewLine
+		Invoke-RevertToSelf | Out-Null
+		Write-Host "Success" -ForegroundColor Green 
 	}catch{Write-Host "Error" -ForegroundColor Red; Return}
 }	
 
-if (Test-Path .\PowerView.ps1) {Remove-Module Powerview}
+if (Test-Path .\PowerView.ps1) {
+	try{
+		Write-Host "Removing PowerView Module | " -NoNewLine
+		Remove-Module PowerView
+		Write-Host "Success" -ForegroundColor Green 
+	}catch{Write-Host "Error" -ForegroundColor Red}
+}
 
 $stopwatch.Stop()
 $elapsedtime = "{0:N0}" -f ($stopwatch.Elapsed.TotalSeconds)
-Write-Host "Running Time: $elapsedtime seconds"
-Write-Host "Current Date/Time: $(Get-Date)"
+Write-Host "Running Time: $elapsedtime seconds" -ForegroundColor Cyan
+Write-Host "Current Date/Time: $(Get-Date)" -ForegroundColor Cyan
 Write-Host "Exiting..." -ForegroundColor Yellow
 }
 
@@ -538,6 +557,46 @@ function PowEnum-SYSVOLFiles {
 		Write-Host "[ ]Potential logon scripts on \\$FQDN\SYSVOL | " -NoNewLine
 		$temp = Find-InterestingFile -Path \\$FQDN\sysvol -Include @('*.vbs', '*.bat', '*.ps1') -Verbose
 		PowEnum-ExportAndCount -TypeEnum SYSVOLFiles
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-GroupManagers {
+	try{
+		Write-Host "[ ]AD Group Managers | " -NoNewLine
+		$temp = Get-DomainManagedSecurityGroup -Domain $FQDN
+		PowEnum-ExportAndCount -TypeEnum GroupManagers
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-FileServers {
+	try{
+		Write-Host "[ ]Potential Fileservers | " -NoNewLine
+		$temp = Get-DomainFileServer -Domain $FQDN
+		PowEnum-ExportAndCount -TypeEnum FileServers
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-DomainTrusts {
+	try{
+		Write-Host "[ ]Domain Trusts | " -NoNewLine
+		$temp = Get-DomainTrust -Domain $FQDN
+		PowEnum-ExportAndCount -TypeEnum DomainTrusts
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-ForeignUsers {
+	try{
+		Write-Host "[ ]Foreign [Domain] Users | " -NoNewLine
+		$temp = Get-DomainForeignUser -Domain $FQDN
+		PowEnum-ExportAndCount -TypeEnum ForeignUsers
+	}catch {Write-Host "Error" -ForegroundColor Red}
+}
+
+function PowEnum-ForeignGroupMembers {
+	try{
+		Write-Host "[ ]Foreign [Domain] Group Members | " -NoNewLine
+		$temp = Get-DomainForeignGroupMember -Domain $FQDN
+		PowEnum-ExportAndCount -TypeEnum ForeignGroupMembers
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
