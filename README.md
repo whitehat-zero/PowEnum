@@ -13,18 +13,19 @@ PowEnum executes common PowerSploit Powerview functions and combines the output 
 
 ### Running PowEnum From Non-Domain Joined System
 There are two choices. The first uses the runas command (this must be executed prior to using PowEnum). The second leverages the Invoke-UserImpersonation function in Powerview.
-1) runas /netonly /user:DOMAIN\USERNAME powershell.exe
+1) runas /netonly /user:test.domain.com\username powershell.exe
 2) Invoke-PowEnum -Credential test.domain.com\username -FQDN test.domain.com
 
 ### Modes
 
 | Mode | Enumerates |
 | ------ | ------ |
-| Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins<br>Domain Users<br>Domain Groups<br>Schema Admin<br>Account Operators<br>Backup Operators<br>Print Operators<br>Server Operators<br>Group Policy Creators Owners<br>Cryptographic Operators<br><br>All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts |
+| Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins<br>Domain Users<br>Domain Groups<br>Schema Admin<br>Account Operators<br>Backup Operators<br>Print Operators<br>Server Operators<br>Group Policy Creators Owners<br>Cryptographic Operators<br>AD Group Managers<br><br>All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts<br>Potential Fileservers |
 | Roasting | Kerberoast Service Accounts<br>ASREPRoast User Accounts |
-| LargeEnv | Basic Enumeration without Get-DomainUser/Get-DomainGroup/Get-DomainComputer |
 | Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
 | SYSVOL | Group Policy Passwords<br>Potential SYSVOL Logon Scripts|
+| Forest | Domain Trusts<br>Foreign [Domain] Users<br>Foreign [Domain] Group Members|
+| LargeEnv | Basic Enumeration without Get-DomainUser/Get-DomainGroup/Get-DomainComputer |
 
 ### Detection
 This enumeration will generate suspicious traffic between the PowEnum system and the target DC(s). If there are security products watching traffic to the DC(s) (i.e. Microsoft ATA) PowEnum will likely get flagged.
