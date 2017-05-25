@@ -55,7 +55,7 @@ function Invoke-PowEnum
 	
 	.EXAMPLE	
 		
-		PS C:\> Invoke-PowEnum -URL http://10.0.0.10/PowerView.ps1
+		PS C:\> Invoke-PowEnum -PoweviewURL http://10.0.0.10/PowerView.ps1
 		
 		Perform basic enumeration for a specific domain using PowerView.ps1 at the set URL
 		
