@@ -461,15 +461,6 @@ function PowEnum-DNSRecords {
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
-#This function is broken right now so is it not being utilized
-function PowEnum-HVTs {
-	try {
-		Write-Host "[ ]High Value Targets | " -NoNewLine
-
-		PowEnum-ExportAndCount -TypeEnum HVTs
-	}catch {Write-Host "Error" -ForegroundColor Red}
-}
-
 function PowEnum-NetSess {
 	try {
 		Write-Host "[ ]Net Sessions | " -NoNewLine
