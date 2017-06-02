@@ -1,4 +1,4 @@
-#requires -version 2
+2#requires -version 2
 
 function Invoke-PowEnum
 {
@@ -122,7 +122,7 @@ Param(
 	$webclient = New-Object System.Net.WebClient
 	$webclient.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
 
-	$HighValueTargetsList
+	$Summary = $null
 	
 	#Download PowerView from specified URL or from GitHub.
 	try {
@@ -163,7 +163,6 @@ Param(
 		Return
 	}
 
-
 	#Set up spreadsheet arrary and count
 	$script:ExportSheetCount = 1
 	$script:ExportSheetFileArray = @()
@@ -187,7 +186,7 @@ Param(
 		PowEnum-GroupManagers
 		PowEnum-Users
 		PowEnum-Groups
-		PowEnum-CreateHighValueTargetsList
+		PowEnum-CreateSummary
 		PowEnum-ExcelFile -SpreadsheetName Basic-UsersAndGroups
 		
 		$script:ExportSheetCount = 1
@@ -302,7 +301,7 @@ function PowEnum-DAs {
 	try {
 		Write-Host "[ ]Domain Admins | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Domain Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"DAs"}})
 		PowEnum-ExportAndCount -TypeEnum DAs
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -311,7 +310,7 @@ function PowEnum-EAs {
 	try {
 		Write-Host "[ ]Enterprise Admins | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"EAs"}})
 		PowEnum-ExportAndCount -TypeEnum EAs
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -320,7 +319,7 @@ function PowEnum-SchemaAdmins {
 	try {
 		Write-Host "[ ]Schema Admins | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Schema Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"SchemaAdmins"}})
 		PowEnum-ExportAndCount -TypeEnum SchemaAdmins
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -329,7 +328,7 @@ function PowEnum-AccountOperators {
 	try {
 		Write-Host "[ ]Account Operators | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Account Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"AcctOperators"}})
 		PowEnum-ExportAndCount -TypeEnum AcctOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -338,7 +337,7 @@ function PowEnum-BackupOperators {
 	try {
 		Write-Host "[ ]Backup Operators | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Backup Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BackupOperators"}})
 		PowEnum-ExportAndCount -TypeEnum BackupOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -347,7 +346,7 @@ function PowEnum-PrintOperators {
 	try {
 		Write-Host "[ ]Print Operators | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Print Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"PrintOperators"}})
 		PowEnum-ExportAndCount -TypeEnum PrintOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -356,7 +355,7 @@ function PowEnum-ServerOperators {
 	try {
 		Write-Host "[ ]Server Operators | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Server Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"ServerOperators"}})
 		PowEnum-ExportAndCount -TypeEnum ServerOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -365,7 +364,7 @@ function PowEnum-GPCreatorsOwners {
 	try {
 		Write-Host "[ ]Group Policy Creators Owners | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Group Policy Creators Owners" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"GPCreatorsOwners"}})
 		PowEnum-ExportAndCount -TypeEnum GPCreatorsOwners
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -374,7 +373,7 @@ function PowEnum-CryptographicOperators {
 	try {
 		Write-Host "[ ]Cryptographic Operators | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Cryptographic Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"CryptographicOperators"}})
 		PowEnum-ExportAndCount -TypeEnum CryptographicOperators
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -383,7 +382,7 @@ function PowEnum-BltAdmins {
 	try {
 		Write-Host "[ ]Builtin Administrators | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Administrators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:HighValueTargetsList += $temp
+		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BltAdmins"}})
 		PowEnum-ExportAndCount -TypeEnum BltAdmins
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -391,7 +390,11 @@ function PowEnum-BltAdmins {
 function PowEnum-Users {
 	try {
 		Write-Host "[ ]All Domain Users (this could take a while) | " -NoNewLine
-		$temp = Get-DomainUser -Domain $FQDN | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
+		$temp = Get-DomainUser -Domain $FQDN | 
+			Select-Object samaccountname, description, @{N="Groups";E={ 
+				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
+				$ConvertedGroupNames -join "; "}}, 
+				pwdlastset, admincount, distinguishedname, userprincipalname, serviceprincipalname, useraccountcontrol, iscriticalsystemobject
 		PowEnum-ExportAndCount -TypeEnum Users
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -415,7 +418,7 @@ function PowEnum-Computers {
 function PowEnum-IPs {
 	try {
 		Write-Host "[ ]All Domain Computer IP Addresses  | " -NoNewLine
-		$temp = Get-DomainComputer -Domain $FQDN | Get-IPAddress
+		$temp = Get-DomainComputer -Domain $FQDN | Resolve-IPAddress
 		PowEnum-ExportAndCount -TypeEnum IPs
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -423,23 +426,31 @@ function PowEnum-IPs {
 function PowEnum-DCLocalAdmins {
 	try {
 		Write-Host "[ ]All Domain Controller Local Admins | " -NoNewLine
-		# $temp = Get-DomainController -Domain $FQDN | Get-NetLocalGroupMember
 		
-		$DomainControllers_LocalAdmins
-		$Domain_Controllers = Get-DomainController
-		$Domain_Controllers | ForEach-Object {
+		$temp = $null
+		
+		Get-DomainController | ForEach-Object {
 			$Domain_Controller_Hostname = $_
-			$DomainController_LocalAdmin = Get-NetLocalGroupMember -Method WinNT -ComputerName $_
-			$DomainController_LocalAdmin_DomainGroupMembers = $DomainController_LocalAdmin | Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | ForEach-Object {$_.AccountName.Substring($_.AccountName.IndexOf("\")+1)} | Get-DomainGroupMember -Recurse | Select-Object @{N="ComputerName";E={"$Domain_Controller_Hostname"}}, 
-				GroupName, 
+			
+			#Get Local Admins On DC using WinNT method because the other method doesnt properly account for the local admin SID being the domain SID
+			$DomainController_LocalAdmin = Get-NetLocalGroupMember -Method WinNT -ComputerName $Domain_Controller_Hostname
+			
+			#If the local admin is a group and domain then recursively get all members and add to table
+			$DomainController_LocalAdmin_DomainGroupMembers = $DomainController_LocalAdmin | 
+			Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | 
+			ForEach-Object {$_.AccountName.Substring($_.AccountName.IndexOf("\")+1)} | 
+			Get-DomainGroupMember -Recurse -Domain $FQDN | 
+			Select-Object @{N="ComputerName";E={"$Domain_Controller_Hostname"}}, 
 				@{N="AccountName";E={-join ($_.MemberDomain, "\", $_.MemberName)}}, 
 				@{N="SID";E={-join ($_.MemberSID)}}, 
 				@{N="IsGroup";E={"$False"}}, 
-				@{N="IsDomain";E={"$True"}}
-			$DomainController_LocalAdmin += $DomainController_LocalAdmin_DomainGroupMembers 
-			$DomainControllers_LocalAdmins += $DomainController_LocalAdmin 
+				@{N="IsDomain";E={"$True"}},*
+			$script:Summary += ($DomainController_LocalAdmin_DomainGroupMembers | Select-Object MemberName,MemberDomain,
+				@{N="Source";E={"DCLocalAdmins"}})
+			$DomainController_LocalAdmin += $DomainController_LocalAdmin_DomainGroupMembers |
+				Select-Object ComputerName, GroupName, AccountName, SID, isGroup, isDomain
+			$temp += $DomainController_LocalAdmin
 		}
-		$temp = $DomainControllers_LocalAdmins
 		
 		PowEnum-ExportAndCount -TypeEnum DCLocalAdmins
 	}catch {Write-Host "Error" -ForegroundColor Red}
@@ -613,32 +624,32 @@ function PowEnum-ForeignGroupMembers {
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
-function PowEnum-CreateHighValueTargetsList {
+function PowEnum-CreateSummary {
 	try{
-		Write-Host "[ ]Creating High Value Targets List | " -NoNewLine
-		$HVTList = $script:HighValueTargetsList 
+		Write-Host "[ ]Creating Summary | " -NoNewLine
+		$HVTList = $script:Summary 
 		
 		$NewHVTList=@()
 		foreach ($HVTUser in $HVTList) {
 			$UserObjectList = $HVTList | Where-Object {$_.MemberName -contains $HVTUser.MemberName}
 			$UsernameCount = $($UserObjectList | Measure-Object).Count
-			
+
 			if ($NewHVTList.MemberName -contains $HVTUser.MemberName) {continue}
-			elseif ($HVTUser.MemberObjectClass -eq "group") {continue}
+			elseif ($HVTUser.MemberObjectClass -eq "Source") {continue}
 			elseif ($UsernameCount -gt 1) {
-					$GroupList = $($UserObjectList | Select-Object -Property GroupName -Unique)
-					$GroupListString = $($GroupList.GroupName -join ",")
-					$CombinedUserObject = ($UserObjectList | Select-Object -First 1 MemberName,MemberDomain,@{n='Groups';e={$GroupListString}})
+					$GroupList = $($UserObjectList | Select-Object -Property Source -Unique)
+					$GroupListString = $($GroupList.Source -join ",")
+					$CombinedUserObject = ($UserObjectList | Select-Object -First 1 MemberName,MemberDomain,@{n='Sources';e={$GroupListString}})
 					$NewHVTList += $CombinedUserObject
 			}
 			else{
-				$CombinedUserObject = ($UserObjectList | Select-Object -First 1 MemberName,MemberDomain,@{n='Groups';e={$_.GroupName}})
+				$CombinedUserObject = ($UserObjectList | Select-Object -First 1 MemberName,MemberDomain,@{n='Sources';e={$_.Source}})
 				$NewHVTList += $CombinedUserObject
 			}
 		}
 		
 		$temp = $NewHVTList
-		PowEnum-ExportAndCount -TypeEnum HVTList
+		PowEnum-ExportAndCount -TypeEnum Summary
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
 
@@ -651,7 +662,7 @@ function PowEnum-ExportAndCount {
 	if($temp -ne $null){
 		
 		#Grab the file name and the full path
-		$exportfilename = $FQDN.Substring(0,$FQDN.IndexOf("."))+ '_' + $ExportSheetCount.toString() + '_' + $TypeEnum + '.csv'
+		$exportfilename = $FQDN.Substring(0,$FQDN.IndexOf(".")) + '_' + $TypeEnum + '.csv'
 		$exportfilepath = (Get-Item -Path ".\" -Verbose).FullName + '\' + $exportfilename
 		
 		#Perform the actual export
@@ -681,8 +692,12 @@ function PowEnum-ExcelFile {
 		
 		#Exit if enumeration resulting in nothing
 		if($script:ExportSheetFileArray.Count -eq 0){Write-Warning "No Data Identified"; Return}
+		
 		$path = (Get-Item -Path ".\" -Verbose).FullName
-		$XLOutput =  $path + "\" + $FQDN + "_" + $SpreadsheetName.Substring($SpreadsheetName.IndexOf("_")+1) + "_" + $(get-random) + ".xlsx"
+		$XLOutput =  $path + "\" + 
+			$FQDN + "_" + 
+			$SpreadsheetName.Substring($SpreadsheetName.IndexOf("_")+1) + "_" + 
+			$(get-random) + ".xlsx"
 
 		# Create Excel object (visible), workbook and worksheet
 		$Excel = New-Object -ComObject excel.application 
@@ -696,7 +711,8 @@ function PowEnum-ExcelFile {
 			$worksheets = $workbooks.worksheets
 			$CSVFullPath = $CSV.FullName
 			
-			$SheetName = ($CSV.name -split "\.")[0]
+			$CSVName = ($CSV.name -split "\.")[0]
+			$SheetName = ($CSVName.Substring($CSVName.LastIndexOf("_")+1))
 			$worksheet = $worksheets.Item($CSVSheet)
 			$worksheet.Name = $SheetName
 			
