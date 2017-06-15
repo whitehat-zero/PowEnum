@@ -227,6 +227,7 @@ Param(
 		PowEnum-GPCreatorsOwners
 		PowEnum-CryptographicOperators
 		PowEnum-GroupManagers
+		PowEnum-CreateSummary
 		PowEnum-ExcelFile -SpreadsheetName Large-Users
 		
 		$script:ExportSheetCount = 1
