@@ -1,4 +1,4 @@
-2#requires -version 2
+#requires -version 2
 
 function Invoke-PowEnum
 {
@@ -138,7 +138,7 @@ Param(
 			IEX $webclient.DownloadString($PowerViewURL)
 			Write-Host "Success" -ForegroundColor Green
 		}
-	}catch {Write-Host "Error" -ForegroundColor Red; Return}
+	}catch {Write-Host "Error: Are You Using The Dev Branch of Powerview?" -ForegroundColor Red; Return}
 
 	#Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
 	if ($Credential -ne $null){
@@ -410,7 +410,10 @@ function PowEnum-Groups {
 function PowEnum-Computers {
 	try {
 		Write-Host "[ ]All Domain Computers (this could take a while) | " -NoNewLine
-		$temp = Get-NetComputer -Domain $FQDN | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname
+		$temp = Get-DomainComputer -Domain $FQDN | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname, 
+				@{N="Groups";E={ 
+				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
+				$ConvertedGroupNames -join "; "}}
 		PowEnum-ExportAndCount -TypeEnum Computers
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -437,18 +440,30 @@ function PowEnum-DCLocalAdmins {
 			
 			#If the local admin is a group and domain then recursively get all members and add to table
 			$DomainController_LocalAdmin_DomainGroupMembers = $DomainController_LocalAdmin | 
-			Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | 
-			ForEach-Object {$_.AccountName.Substring($_.AccountName.IndexOf("\")+1)} | 
-			Get-DomainGroupMember -Recurse -Domain $FQDN | 
-			Select-Object @{N="ComputerName";E={"$Domain_Controller_Hostname"}}, 
-				@{N="AccountName";E={-join ($_.MemberDomain, "\", $_.MemberName)}}, 
-				@{N="SID";E={-join ($_.MemberSID)}}, 
-				@{N="IsGroup";E={"$False"}}, 
-				@{N="IsDomain";E={"$True"}},*
+				Where-Object {$_.IsGroup -eq $TRUE -and $_.IsDomain -eq $TRUE} | 
+					ForEach-Object {$_.AccountName.Substring($_.AccountName.IndexOf("\")+1)} | 
+						Get-DomainGroupMember -Recurse -Domain $FQDN | 
+							Select-Object @{N="ComputerName";E={"$Domain_Controller_Hostname"}}, 
+								@{N="AccountName";E={-join ($_.MemberDomain, "\", $_.MemberName)}}, 
+								@{N="SID";E={-join ($_.MemberSID)}}, 
+								@{N="IsGroup";E={"$False"}}, 
+								@{N="IsDomain";E={"$True"}},
+								@{N="GroupName";E={"$($_.GroupName)"}}
+			
+			#Get all local admins with an empty groupname and change the $null value to a string (prevents excel export issues)
+			$DomainController_LocalAdmin_DomainGroupMembers = $DomainController_LocalAdmin_DomainGroupMembers |
+			  Select-Object ComputerName,AccountName,SID,IsGroup,IsDomain, @{
+					Label = "GroupName"
+					Expression = { if ($_.GroupName) { $_.GroupName } else { "No Data" } }
+			 }
+				
+				
 			$script:Summary += ($DomainController_LocalAdmin_DomainGroupMembers | Select-Object MemberName,MemberDomain,
 				@{N="Source";E={"DCLocalAdmins"}})
+			
 			$DomainController_LocalAdmin += $DomainController_LocalAdmin_DomainGroupMembers |
 				Select-Object ComputerName, GroupName, AccountName, SID, isGroup, isDomain
+		
 			$temp += $DomainController_LocalAdmin
 		}
 		
@@ -467,7 +482,8 @@ function PowEnum-Subnets {
 function PowEnum-DNSRecords {
 	try {
 		Write-Host "[ ]DNS Zones & Records | " -NoNewLine
-		$temp = Get-DomainDNSZone -Domain $FQDN | Get-DomainDNSRecord
+		$temp = Get-DomainDNSZone -Domain $FQDN
+		if ($temp -ne $null) {$temp = $temp | Get-DomainDNSRecord}
 		PowEnum-ExportAndCount -TypeEnum DNSRecords
 	}catch {Write-Host "Error" -ForegroundColor Red}
 }
@@ -659,6 +675,7 @@ function PowEnum-ExportAndCount {
 		[String]
 		$TypeEnum
 	)
+	
 	if($temp -ne $null){
 		
 		#Grab the file name and the full path
@@ -666,15 +683,19 @@ function PowEnum-ExportAndCount {
 		$exportfilepath = (Get-Item -Path ".\" -Verbose).FullName + '\' + $exportfilename
 		
 		#Perform the actual export
-		$temp | Export-CSV -NoTypeInformation -Path ('.\' + $exportfilename)
+		$temp | Select-Object * | Export-CSV -NoTypeInformation -Path ('.\' + $exportfilename)
 
 		#Create new file object and add to array
 		$ExportSheetFile = new-object psobject
 		$ExportSheetFile | add-member NoteProperty Name $exportfilename
 		$ExportSheetFile | add-member NoteProperty FullName $exportfilepath
 		$script:ExportSheetFileArray += $ExportSheetFile
+		
+		$count = $temp | measure-object | select-object -expandproperty Count
 	}
-	$count = $temp | measure-object | select-object -expandproperty Count
+	if($temp -eq $null){
+		$count = 0
+	}
 	Write-Host "$count Identified" -ForegroundColor Green
 	$script:ExportSheetCount++
 }
