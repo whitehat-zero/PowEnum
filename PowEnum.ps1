@@ -439,7 +439,7 @@ function PowEnum-DCLocalAdmins {
 			$Domain_Controller_Hostname = $_
 			
 			#Get Local Admins On DC using WinNT method because the other method doesnt properly account for the local admin SID being the domain SID
-			$DomainController_LocalAdmin = Get-NetLocalGroupMember -Method WinNT -ComputerName 
+			$DomainController_LocalAdmin = Get-NetLocalGroupMember -Method WinNT -ComputerName $Domain_Controller_Hostname
 			
 			#If the local admin is a group and domain then recursively get all members and add to table
 			$DomainController_LocalAdmin_DomainGroupMembers = $DomainController_LocalAdmin | 
