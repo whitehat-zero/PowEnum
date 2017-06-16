@@ -129,7 +129,8 @@ Param(
 		Write-Host "[>]Downloading Powerview | " -NoNewLine
 		
 		if (Test-Path .\PowerView.ps1){
-			Write-Host "[Skipping Download] PowerView.ps1 Present | " -NoNewLine
+			Write-Host "[Skipping Download] " -NoNewLine -ForegroundColor Yellow
+			Write-Host "PowerView.ps1 Present | " -NoNewLine
 			IEX $webclient.DownloadString('.\PowerView.ps1')
 			Write-Host "Success" -ForegroundColor Green
 		}
@@ -138,7 +139,7 @@ Param(
 			IEX $webclient.DownloadString($PowerViewURL)
 			Write-Host "Success" -ForegroundColor Green
 		}
-	}catch {Write-Host "Error: Are You Using The Dev Branch of Powerview?" -ForegroundColor Red; Return}
+	}catch {Write-Host "Error: Are You Using The Dev Branch of Powerview? $_.Exception.GetType().FullName" -ForegroundColor Red; Return}
 
 	#Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
 	if ($Credential -ne $null){
@@ -149,7 +150,7 @@ Param(
 			Write-Host "Impersonate user: $Domain\$Username | " -NoNewLine
 			$Null = Invoke-UserImpersonation -Credential $Credential
 			Write-Host "Success" -ForegroundColor Green 
-		}catch{Write-Host "Error" -ForegroundColor Red; Return}
+		}catch{Write-Host "Error: Are You Using The Dev Branch of Powerview? $_.Exception.GetType().FullName" -ForegroundColor Red; Return}
 	}	
 
 	#Grab Local Domain
@@ -283,6 +284,12 @@ if ($Credential -ne $null){
 	}catch{Write-Host "Error" -ForegroundColor Red; Return}
 }	
 
+$script:ExportSheetCount = $null
+$script:ExportSheetFileArray = $null
+$Summary = $null
+[System.GC]::Collect()
+[System.GC]::WaitForPendingFinalizers()
+
 $stopwatch.Stop()
 $elapsedtime = "{0:N0}" -f ($stopwatch.Elapsed.TotalSeconds)
 Write-Host $("Running Time: " + $elapsedtime + "s") -ForegroundColor Cyan
@@ -396,7 +403,7 @@ function PowEnum-Users {
 				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
 				$ConvertedGroupNames -join "; "}}, 
 				pwdlastset, admincount, distinguishedname, userprincipalname, serviceprincipalname, useraccountcontrol, iscriticalsystemobject
-		PowEnum-ExportAndCount -TypeEnum Users
+		PowEnum-ExportAndCount -TypeEnum AllUsers
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
@@ -407,7 +414,7 @@ function PowEnum-Groups {
 			@{N="MemberOf";E={ 
 			$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
 			$ConvertedGroupNames -join "; "}}
-		PowEnum-ExportAndCount -TypeEnum Groups
+		PowEnum-ExportAndCount -TypeEnum AllGroups
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
@@ -418,7 +425,7 @@ function PowEnum-Computers {
 				@{N="Groups";E={ 
 				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
 				$ConvertedGroupNames -join "; "}}
-		PowEnum-ExportAndCount -TypeEnum Computers
+		PowEnum-ExportAndCount -TypeEnum AllComputers
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
 
@@ -697,7 +704,15 @@ function PowEnum-ExportAndCount {
 		$ExportSheetFile = new-object psobject
 		$ExportSheetFile | add-member NoteProperty Name $exportfilename
 		$ExportSheetFile | add-member NoteProperty FullName $exportfilepath
-		$script:ExportSheetFileArray += $ExportSheetFile
+		
+		if($TypeEnum -eq "Summary") {
+			$TempExportSheetFileArray = @()
+			$TempExportSheetFileArray = $script:ExportSheetFileArray 
+			$script:ExportSheetFileArray = @()
+			$script:ExportSheetFileArray += $ExportSheetFile
+			$script:ExportSheetFileArray += $TempExportSheetFileArray
+		}
+		else {$script:ExportSheetFileArray += $ExportSheetFile}
 		
 		$count = $temp | measure-object | select-object -expandproperty Count
 	}
@@ -779,8 +794,6 @@ function PowEnum-ExcelFile {
 		$Null = [System.Runtime.Interopservices.Marshal]::ReleaseComObject($Excel)
 		$CSVSheet--
 		Write-Host "$CSVSheet Sheet(s) Processed" -ForegroundColor Green
-		[System.GC]::Collect()
-		[System.GC]::WaitForPendingFinalizers()
 		
 	}catch{Write-Host "Error: Is Excel Installed?" -ForegroundColor Red}
 }
