@@ -148,7 +148,7 @@ Param(
 	}catch {Write-Host "Error: Are You Using The Dev Branch of Powerview? $_.Exception.GetType().FullName" -ForegroundColor Red; Return}
 
 	#Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
-	if ($Credential -ne System.Management.Automation.PSCredential]::Empty){
+	if ($Credential -ne [System.Management.Automation.PSCredential]::Empty){
 		try{
 			$NetworkCredential = $Credential.GetNetworkCredential()
 			$Domain = $NetworkCredential.Domain
