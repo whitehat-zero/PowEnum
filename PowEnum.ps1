@@ -103,7 +103,8 @@ Param(
 	
 	[Parameter(ParameterSetName = 'Credential')]
 	[Management.Automation.PSCredential]
-	[Management.Automation.CredentialAttribute()]
+        [Management.Automation.Credential()]
+        $Credential = [System.Management.Automation.PSCredential]::Empty
 	$Credential,
 	
 	[Parameter(Position = 3)]
@@ -115,8 +116,10 @@ Param(
 	$ErrorActionPreference = 'Continue'
 	$WarningPreference = "SilentlyContinue"
 
-	try{$Excel = New-Object -ComObject excel.application}
-	catch{Write-Host "Is Excel Installed? Disabling Excel Output";$NoExcel = $True}
+	if ($NoExcel -eq $null){
+		try{$Excel = New-Object -ComObject excel.application}
+		catch{Write-Host "Is Excel Installed? Disabling Excel Output";$NoExcel = $True}
+	}
 	
 	#Start Stopwatch
 	$stopwatch = [system.diagnostics.stopwatch]::startnew()
@@ -145,7 +148,7 @@ Param(
 	}catch {Write-Host "Error: Are You Using The Dev Branch of Powerview? $_.Exception.GetType().FullName" -ForegroundColor Red; Return}
 
 	#Uses PowerView to create a new "runas /netonly" type logon and impersonate the token.
-	if ($Credential -ne $null){
+	if ($Credential -ne System.Management.Automation.PSCredential]::Empty){
 		try{
 			$NetworkCredential = $Credential.GetNetworkCredential()
 			$Domain = $NetworkCredential.Domain
