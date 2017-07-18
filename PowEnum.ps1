@@ -104,8 +104,7 @@ Param(
 	[Parameter(ParameterSetName = 'Credential')]
 	[Management.Automation.PSCredential]
         [Management.Automation.Credential()]
-        $Credential = [System.Management.Automation.PSCredential]::Empty
-	$Credential,
+        $Credential = [System.Management.Automation.PSCredential]::Empty,
 	
 	[Parameter(Position = 3)]
 	[Switch]
