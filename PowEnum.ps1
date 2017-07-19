@@ -115,7 +115,7 @@ Param(
 	$ErrorActionPreference = 'Continue'
 	$WarningPreference = "SilentlyContinue"
 
-	if ($NoExcel -eq $null){
+	if ($NoExcel -eq $False){
 		try{$Excel = New-Object -ComObject excel.application}
 		catch{Write-Host "Is Excel Installed? Disabling Excel Output";$NoExcel = $True}
 	}
@@ -279,14 +279,14 @@ Param(
 }
 
 #reverting Token
-if ($Credential -ne $null){
+if ($Credential -ne [System.Management.Automation.PSCredential]::Empty){
 	try{
 		$NetworkCredential = $Credential.GetNetworkCredential()
 		$UserName = $NetworkCredential.UserName
 		Write-Host "Reverting Token from: $FQDN\$Username | " -NoNewLine
 		$Null = Invoke-RevertToSelf
 		Write-Host "Success" -ForegroundColor Green 
-	}catch{Write-Host "Error" -ForegroundColor Red; Return}
+	}catch{Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red; Return}
 }	
 
 $script:ExportSheetCount = $null
@@ -748,7 +748,7 @@ function PowEnum-ExcelFile {
 		[String]
 		$SpreadsheetName
 	)
-	if ($NoExcel) {Return}
+	if ($NoExcel -eq $True) {Return}
 	
 	try {
 		Write-Host "[ ]Combining csv file(s) to xlsx | " -NoNewLine
@@ -816,4 +816,3 @@ function PowEnum-ExcelFile {
 		
 	}catch{Write-Host "Error: Is Excel Installed?" -ForegroundColor Red}
 }
-
