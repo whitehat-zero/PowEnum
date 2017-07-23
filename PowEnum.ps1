@@ -314,7 +314,7 @@ function PowEnum-DAs {
 	try {
 		Write-Host "[ ]Domain Admins (DA) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Domain Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"DAs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"DAs"}})}
 		PowEnum-ExportAndCount -TypeEnum DAs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -323,7 +323,7 @@ function PowEnum-EAs {
 	try {
 		Write-Host "[ ]Enterprise Admins (EA) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Enterprise Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"EAs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"EAs"}})}
 		PowEnum-ExportAndCount -TypeEnum EAs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -332,7 +332,7 @@ function PowEnum-SchemaAdmins {
 	try {
 		Write-Host "[ ]Schema Admins (SA) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Schema Admins" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"SAs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"SAs"}})}
 		PowEnum-ExportAndCount -TypeEnum SAs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -341,7 +341,7 @@ function PowEnum-AccountOperators {
 	try {
 		Write-Host "[ ]Account Operators (AO) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Account Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"AOs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"AOs"}})}
 		PowEnum-ExportAndCount -TypeEnum AOs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -350,7 +350,7 @@ function PowEnum-BackupOperators {
 	try {
 		Write-Host "[ ]Backup Operators (BO) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Backup Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BOs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BOs"}})}
 		PowEnum-ExportAndCount -TypeEnum BOs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -359,7 +359,7 @@ function PowEnum-PrintOperators {
 	try {
 		Write-Host "[ ]Print Operators (PO) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Print Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"POs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"POs"}})}
 		PowEnum-ExportAndCount -TypeEnum POs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -368,7 +368,7 @@ function PowEnum-ServerOperators {
 	try {
 		Write-Host "[ ]Server Operators (SO) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Server Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"SOs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"SOs"}})}
 		PowEnum-ExportAndCount -TypeEnum SOs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -377,7 +377,7 @@ function PowEnum-GPCreatorsOwners {
 	try {
 		Write-Host "[ ]Group Policy Creators Owners | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Group Policy Creators Owners" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"GPCreatorsOwners"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"GPCreatorsOwners"}})}
 		PowEnum-ExportAndCount -TypeEnum GPCreatorsOwners
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -386,7 +386,7 @@ function PowEnum-CryptographicOperators {
 	try {
 		Write-Host "[ ]Cryptographic Operators (CO) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Cryptographic Operators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"COs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"COs"}})}
 		PowEnum-ExportAndCount -TypeEnum COs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -395,7 +395,7 @@ function PowEnum-BltAdmins {
 	try {
 		Write-Host "[ ]Builtin Administrators (BA) | " -NoNewLine
 		$temp = Get-DomainGroupMember -Identity "Administrators" -Recurse -Domain $FQDN | Select-Object MemberName, GroupName, MemberDomain, MemberObjectClass
-		$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BAs"}})
+		if($temp -ne $null){$script:Summary += ($temp | Select-Object *,@{N="Source";E={"BAs"}})}
 		PowEnum-ExportAndCount -TypeEnum BAs
 	}catch {Write-Host "Error: $_.Exception.GetType().FullName" -ForegroundColor Red}
 }
@@ -816,3 +816,4 @@ function PowEnum-ExcelFile {
 		
 	}catch{Write-Host "Error: Is Excel Installed?" -ForegroundColor Red}
 }
+
