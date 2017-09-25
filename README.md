@@ -35,7 +35,7 @@ There are two choices. The first uses the runas command (this must be executed p
 ### Mitigations
 | Mode | Mitigations |
 | ------ | ------ |
-| Basic | Net Cease - Hardening Net Session Enumeration<br>https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5<br>SAMRi10 - Hardening SAM Remote Access in Windows 10/Server 2016<br>https://gallery.technet.microsoft.com/SAMRi10-Hardening-Remote-48d94b5b<br>Active Directory: Controlling Object Visibility – List Object Mode<br>https://social.technet.microsoft.com/wiki/contents/articles/29558.active-directory-controlling-object-visibility-list-object-mode.aspx |
+| Basic | Net Cease - Hardening Net Session Enumeration<br>https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5<br>SAMRi10 - Hardening SAM Remote Access in Windows 10/Server 2016<br>https://gallery.technet.microsoft.com/SAMRi10-Hardening-Remote-48d94b5b<br>Active Directory: Controlling Object Visibility<br>https://social.technet.microsoft.com/wiki/contents/articles/29558.active-directory-controlling-object-visibility-list-object-mode.aspx<br>http://windowsitpro.com/active-directory/hiding-active-directory-objects-and-attributes |
 | Roasting | Mitigations revolve around using strong passwords or GMSA for affected accounts<br>https://adsecurity.org/?p=2293 |
 | Special | See Basic  |
 | SYSVOL | Install KB2962486  and remove affected xml files<br>https://adsecurity.org/?p=2288  |
