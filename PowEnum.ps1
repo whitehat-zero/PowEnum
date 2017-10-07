@@ -45,9 +45,12 @@ function Invoke-PowEnum {
 			Enabled, Smartcard Required, Password Doesn't Expire
 		SYSVOL: Searches SYSVOL on DC
 			Group Policy Passwords
-			Potential SYSVOL Logon Scripts
+			SYSVOL Script Files (potential hardcoded credentials)
+		Forest:	
+			Domain Trusts
+			Foreign [Domain] Users
+			Foreign [Domain] Group Members
 			
-		
 	.EXAMPLE 
 		
 		PS C:\> Invoke-PowEnum
@@ -80,7 +83,7 @@ Param(
 	$FQDN,
 	
 	[Parameter(Position = 1)]
-	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special', 'SYSVOL','Forest')]
+	[ValidateSet('Basic', 'Roasting', 'LargeEnv', 'Special', 'SYSVOL', 'Forest')]
 	[String]
 	$Mode = 'Basic',
 
@@ -98,6 +101,8 @@ Param(
 	$ErrorActionPreference = 'Continue'
 	$WarningPreference = "SilentlyContinue"
 
+	Write-Host "Current Date/Time: $(Get-Date)" -ForegroundColor Cyan
+	
 	if ($NoExcel -eq $False){
 		try{$Excel = New-Object -ComObject excel.application}
 		catch{Write-Host "Is Excel Installed? Disabling Excel Output";$NoExcel = $True}
@@ -120,16 +125,21 @@ Param(
 		}catch{Write-Host "Error: $_" -ForegroundColor Red; Return}
 	}
 	
-	#Grab Local Domain
+	
 	Write-Host "Enumeration Domain: " -ForegroundColor Cyan -NoNewLine
-	if (!$FQDN) {
-		$FQDN = (Get-Domain).Name
-		Write-Host "$FQDN" -ForegroundColor Cyan
+	
+	#Grab Local Domain
+	if ($FQDN) {Write-Host "$FQDN" -ForegroundColor Cyan}
+	elseif (!$FQDN) {
+			$FQDN = (Get-Domain).Name
+			Write-Host "$FQDN" -ForegroundColor Cyan
 	}
-	if (!$FQDN) {
-		Write-Host "Unable to retrieve domain (make sure the FQDN, username, and password are correct), exiting..." -ForegroundColor Red;
-		Return
-	}
+	
+	#If the domain is still empty
+	if (!$FQDN -or $FQDN -eq "") {Write-Host "Unable to retrieve domain (make sure the FQDN, username, and password are correct), exiting..." -ForegroundColor Red; Return}
+	
+	#Quick check, if no DCs then something is wrong
+	if ((Get-DomainController -Domain $FQDN) -eq $Null){Write-Host "Unable to retrieve domain controllers (make sure the FQDN, username, and password are correct), exiting..." -ForegroundColor Red; Return}
 
 	#Set up spreadsheet arrary and count
 	$script:ExportSheetCount = 1
@@ -151,8 +161,8 @@ Param(
 		PowEnum-ServerOperators
 		PowEnum-GPCreatorsOwners
 		PowEnum-CryptographicOperators
-		PowEnum-GroupManagers
 		PowEnum-AdminCount
+		PowEnum-GroupManagers
 		PowEnum-Users
 		PowEnum-Groups
 		PowEnum-CreateSummary
@@ -220,18 +230,20 @@ Param(
 			PowEnum-GPPPassword
 		}catch {Write-Host "Error: $_" -ForegroundColor Red}
 		PowEnum-SYSVOLFiles	
+		PowEnum-LocalGroupChanges
 		PowEnum-ExcelFile -SpreadsheetName SYSVOL
 	}
 	elseif ($Mode -eq 'Forest') {
 		PowEnum-DomainTrusts
 		PowEnum-ForeignUsers
 		PowEnum-ForeignGroupMembers
+		PowEnum-GPPPassword-Forest
 		PowEnum-ExcelFile -SpreadsheetName SYSVOL
 	}
 	else {
 		Write-Host "Incorrect Mode Selected"
 		Return
-}
+	}
 
 	#reverting Token
 	if ($Credential -ne [System.Management.Automation.PSCredential]::Empty){
@@ -364,6 +376,13 @@ function PowEnum-AdminCount {
 				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
 				$ConvertedGroupNames -join "; "}}, 
 				pwdlastset, admincount, distinguishedname, userprincipalname, serviceprincipalname, useraccountcontrol, iscriticalsystemobject
+		if($temp -ne $null){
+			$script:Summary += (
+				$temp | Select-Object @{N="MemberName";E={$_.samaccountname}},
+					@{N="MemberDomain";E={"$FQDN"}},
+					@{N="Source";E={"AdminCount"}}
+			)
+		}
 		PowEnum-ExportAndCount -TypeEnum AdminCount
 	}catch {Write-Host "Error: $_" -ForegroundColor Red}
 }
@@ -580,6 +599,14 @@ function PowEnum-GPPPassword {
 	}catch {Write-Host "Error: $_" -ForegroundColor Red}
 }
 
+function PowEnum-GPPPassword-Forest {
+	try{
+		Write-Host "[ ]GPP Password(s) [Forest] | " -NoNewLine
+		$temp = Get-GPPPassword -Server $FQDN -SearchForest
+		PowEnum-ExportAndCount -TypeEnum GPPPassword-Forest
+	}catch {Write-Host "Error: $_" -ForegroundColor Red}
+}
+
 function PowEnum-SYSVOLFiles {
 	try{
 		Write-Host "[ ]Potential logon scripts on \\$FQDN\SYSVOL | " -NoNewLine
@@ -625,6 +652,25 @@ function PowEnum-ForeignGroupMembers {
 		Write-Host "[ ]Foreign [Domain] Group Members | " -NoNewLine
 		$temp = Get-DomainForeignGroupMember -Domain $FQDN
 		PowEnum-ExportAndCount -TypeEnum ForeignGroupMembers
+	}catch {Write-Host "Error: $_" -ForegroundColor Red}
+}
+
+function PowEnum-ReplicationRights {
+	try{
+		Write-Host "[ ]All Users With Replication Rights (DCSync) | " -NoNewLine
+		$temp = 
+		Get-ObjectACL -ResolveGUIDs | ? {
+			($_.ActiveDirectoryRights -match 'GenericAll') -or ($_.ObjectAceType -match 'Replication-Get')
+		} | Select-Object -ExpandProperty SecurityIdentifier | ConvertFrom-SID
+		PowEnum-ExportAndCount -TypeEnum ForeignGroupMembers
+	}catch {Write-Host "Error: $_" -ForegroundColor Red}
+}
+
+function PowEnum-LocalGroupChanges {
+	try{
+		Write-Host "[ ]All Local Group Membership Modifications (GPO or GPP) | " -NoNewLine
+		$temp = Get-DomainGPOLocalGroup
+		PowEnum-ExportAndCount -TypeEnum LocalGroupsChanges
 	}catch {Write-Host "Error: $_" -ForegroundColor Red}
 }
 
@@ -720,7 +766,7 @@ function PowEnum-ExcelFile {
 	if ($NoExcel -eq $True) {Return}
 	
 	try {
-		Write-Host "[ ]Combining csv file(s) to xlsx | " -NoNewLine
+		Write-Host "[ ]Combining csv file(s) to xlsx | " -NoNewLine -ForegroundColor Cyan
 		
 		#Exit if enumeration resulting in nothing
 		if($script:ExportSheetFileArray.Count -eq 0){Write-Warning "No Data Identified"; Return}
@@ -2032,6 +2078,134 @@ A custom PSObject with the ComputerName and IPAddress.
             }
             catch {
                 Write-Verbose "[Resolve-IPAddress] Could not resolve $Computer to an IP Address."
+            }
+        }
+    }
+}
+
+function ConvertTo-SID {
+<#
+.SYNOPSIS
+
+Converts a given user/group name to a security identifier (SID).
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Convert-ADName, Get-DomainObject, Get-Domain  
+
+.DESCRIPTION
+
+Converts a "DOMAIN\username" syntax to a security identifier (SID)
+using System.Security.Principal.NTAccount's translate function. If alternate
+credentials are supplied, then Get-ADObject is used to try to map the name
+to a security identifier.
+
+.PARAMETER ObjectName
+
+The user/group name to convert, can be 'user' or 'DOMAIN\user' format.
+
+.PARAMETER Domain
+
+Specifies the domain to use for the translation, defaults to the current domain.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to for the translation.
+
+.PARAMETER Credential
+
+Specifies an alternate credential to use for the translation.
+
+.EXAMPLE
+
+ConvertTo-SID 'DEV\dfm'
+
+.EXAMPLE
+
+'DEV\dfm','DEV\krbtgt' | ConvertTo-SID
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+'TESTLAB\dfm' | ConvertTo-SID -Credential $Cred
+
+.INPUTS
+
+String
+
+Accepts one or more username specification strings on the pipeline.
+
+.OUTPUTS
+
+String
+
+A string representing the SID of the translated name.
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType([String])]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('Name', 'Identity')]
+        [String[]]
+        $ObjectName,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    BEGIN {
+        $DomainSearcherArguments = @{}
+        if ($PSBoundParameters['Domain']) { $DomainSearcherArguments['Domain'] = $Domain }
+        if ($PSBoundParameters['Server']) { $DomainSearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['Credential']) { $DomainSearcherArguments['Credential'] = $Credential }
+    }
+
+    PROCESS {
+        ForEach ($Object in $ObjectName) {
+            $Object = $Object -Replace '/','\'
+
+            if ($PSBoundParameters['Credential']) {
+                $DN = Convert-ADName -Identity $Object -OutputType 'DN' @DomainSearcherArguments
+                if ($DN) {
+                    $UserDomain = $DN.SubString($DN.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                    $UserName = $DN.Split(',')[0].split('=')[1]
+
+                    $DomainSearcherArguments['Identity'] = $UserName
+                    $DomainSearcherArguments['Domain'] = $UserDomain
+                    $DomainSearcherArguments['Properties'] = 'objectsid'
+                    Get-DomainObject @DomainSearcherArguments | Select-Object -Expand objectsid
+                }
+            }
+            else {
+                try {
+                    if ($Object.Contains('\')) {
+                        $Domain = $Object.Split('\')[0]
+                        $Object = $Object.Split('\')[1]
+                    }
+                    elseif (-not $PSBoundParameters['Domain']) {
+                        $DomainSearcherArguments = @{}
+                        $Domain = (Get-Domain @DomainSearcherArguments).Name
+                    }
+
+                    $Obj = (New-Object System.Security.Principal.NTAccount($Domain, $Object))
+                    $Obj.Translate([System.Security.Principal.SecurityIdentifier]).Value
+                }
+                catch {
+                    Write-Verbose "[ConvertTo-SID] Error converting $Domain\$Object : $_"
+                }
             }
         }
     }
@@ -8518,6 +8692,692 @@ A custom PSObject describing the distributed file systems.
         }
 
         $DFSshares | Sort-Object -Property ('RemoteServerName','Name') -Unique
+    }
+}
+
+function Get-GptTmpl {
+<#
+.SYNOPSIS
+
+Helper to parse a GptTmpl.inf policy file path into a hashtable.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, Get-IniContent  
+
+.DESCRIPTION
+
+Parses a GptTmpl.inf into a custom hashtable using Get-IniContent. If a
+GPO object is passed, GPOPATH\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf
+is constructed and assumed to be the parse target. If -Credential is passed,
+Add-RemoteConnection is used to mount \\TARGET\SYSVOL with the specified creds,
+the files are parsed, and the connection is destroyed later with Remove-RemoteConnection.
+
+.PARAMETER GptTmplPath
+
+Specifies the GptTmpl.inf file path name to parse.
+
+.PARAMETER OutputObject
+
+Switch. Output a custom PSObject instead of a hashtable.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the remote system.
+
+.EXAMPLE
+
+Get-GptTmpl -GptTmplPath "\\dev.testlab.local\sysvol\dev.testlab.local\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+
+Parse the default domain policy .inf for dev.testlab.local
+
+.EXAMPLE
+
+Get-DomainGPO testing | Get-GptTmpl
+
+Parse the GptTmpl.inf policy for the GPO with display name of 'testing'.
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+Get-GptTmpl -Credential $Cred -GptTmplPath "\\dev.testlab.local\sysvol\dev.testlab.local\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+
+Parse the default domain policy .inf for dev.testlab.local using alternate credentials.
+
+.OUTPUTS
+
+Hashtable
+
+Ouputs a hashtable representing the parsed GptTmpl.inf file.
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType([Hashtable])]
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('gpcfilesyspath', 'Path')]
+        [String]
+        $GptTmplPath,
+
+        [Switch]
+        $OutputObject,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    BEGIN {
+        $MappedPaths = @{}
+    }
+
+    PROCESS {
+        try {
+            if (($GptTmplPath -Match '\\\\.*\\.*') -and ($PSBoundParameters['Credential'])) {
+                $SysVolPath = "\\$((New-Object System.Uri($GptTmplPath)).Host)\SYSVOL"
+                if (-not $MappedPaths[$SysVolPath]) {
+                    # map IPC$ to this computer if it's not already
+                    Add-RemoteConnection -Path $SysVolPath -Credential $Credential
+                    $MappedPaths[$SysVolPath] = $True
+                }
+            }
+
+            $TargetGptTmplPath = $GptTmplPath
+            if (-not $TargetGptTmplPath.EndsWith('.inf')) {
+                $TargetGptTmplPath += '\MACHINE\Microsoft\Windows NT\SecEdit\GptTmpl.inf'
+            }
+
+            Write-Verbose "[Get-GptTmpl] Parsing GptTmplPath: $TargetGptTmplPath"
+
+            if ($PSBoundParameters['OutputObject']) {
+                $Contents = Get-IniContent -Path $TargetGptTmplPath -OutputObject -ErrorAction Stop
+                if ($Contents) {
+                    $Contents | Add-Member Noteproperty 'Path' $TargetGptTmplPath
+                    $Contents
+                }
+            }
+            else {
+                $Contents = Get-IniContent -Path $TargetGptTmplPath -ErrorAction Stop
+                if ($Contents) {
+                    $Contents['Path'] = $TargetGptTmplPath
+                    $Contents
+                }
+            }
+        }
+        catch {
+            Write-Verbose "[Get-GptTmpl] Error parsing $TargetGptTmplPath : $_"
+        }
+    }
+
+    END {
+        # remove the SYSVOL mappings
+        $MappedPaths.Keys | ForEach-Object { Remove-RemoteConnection -Path $_ }
+    }
+}
+
+function Get-GroupsXML {
+<#
+.SYNOPSIS
+
+Helper to parse a groups.xml file path into a custom object.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Add-RemoteConnection, Remove-RemoteConnection, ConvertTo-SID  
+
+.DESCRIPTION
+
+Parses a groups.xml into a custom object. If -Credential is passed,
+Add-RemoteConnection is used to mount \\TARGET\SYSVOL with the specified creds,
+the files are parsed, and the connection is destroyed later with Remove-RemoteConnection.
+
+.PARAMETER GroupsXMLpath
+
+Specifies the groups.xml file path name to parse.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the remote system.
+
+.OUTPUTS
+
+PowerView.GroupsXML
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType('PowerView.GroupsXML')]
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('Path')]
+        [String]
+        $GroupsXMLPath,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty
+    )
+
+    BEGIN {
+        $MappedPaths = @{}
+    }
+
+    PROCESS {
+        try {
+            if (($GroupsXMLPath -Match '\\\\.*\\.*') -and ($PSBoundParameters['Credential'])) {
+                $SysVolPath = "\\$((New-Object System.Uri($GroupsXMLPath)).Host)\SYSVOL"
+                if (-not $MappedPaths[$SysVolPath]) {
+                    # map IPC$ to this computer if it's not already
+                    Add-RemoteConnection -Path $SysVolPath -Credential $Credential
+                    $MappedPaths[$SysVolPath] = $True
+                }
+            }
+
+            [XML]$GroupsXMLcontent = Get-Content -Path $GroupsXMLPath -ErrorAction Stop
+
+            # process all group properties in the XML
+            $GroupsXMLcontent | Select-Xml "/Groups/Group" | Select-Object -ExpandProperty node | ForEach-Object {
+
+                $Groupname = $_.Properties.groupName
+
+                # extract the localgroup sid for memberof
+                $GroupSID = $_.Properties.groupSid
+                if (-not $GroupSID) {
+                    if ($Groupname -match 'Administrators') {
+                        $GroupSID = 'S-1-5-32-544'
+                    }
+                    elseif ($Groupname -match 'Remote Desktop') {
+                        $GroupSID = 'S-1-5-32-555'
+                    }
+                    elseif ($Groupname -match 'Guests') {
+                        $GroupSID = 'S-1-5-32-546'
+                    }
+                    else {
+                        if ($PSBoundParameters['Credential']) {
+                            $GroupSID = ConvertTo-SID -ObjectName $Groupname -Credential $Credential
+                        }
+                        else {
+                            $GroupSID = ConvertTo-SID -ObjectName $Groupname
+                        }
+                    }
+                }
+
+                # extract out members added to this group
+                $Members = $_.Properties.members | Select-Object -ExpandProperty Member | Where-Object { $_.action -match 'ADD' } | ForEach-Object {
+                    if ($_.sid) { $_.sid }
+                    else { $_.name }
+                }
+
+                if ($Members) {
+                    # extract out any/all filters...I hate you GPP
+                    if ($_.filters) {
+                        $Filters = $_.filters.GetEnumerator() | ForEach-Object {
+                            New-Object -TypeName PSObject -Property @{'Type' = $_.LocalName;'Value' = $_.name}
+                        }
+                    }
+                    else {
+                        $Filters = $Null
+                    }
+
+                    if ($Members -isnot [System.Array]) { $Members = @($Members) }
+
+                    $GroupsXML = New-Object PSObject
+                    $GroupsXML | Add-Member Noteproperty 'GPOPath' $TargetGroupsXMLPath
+                    $GroupsXML | Add-Member Noteproperty 'Filters' $Filters
+                    $GroupsXML | Add-Member Noteproperty 'GroupName' $GroupName
+                    $GroupsXML | Add-Member Noteproperty 'GroupSID' $GroupSID
+                    $GroupsXML | Add-Member Noteproperty 'GroupMemberOf' $Null
+                    $GroupsXML | Add-Member Noteproperty 'GroupMembers' $Members
+                    $GroupsXML.PSObject.TypeNames.Insert(0, 'PowerView.GroupsXML')
+                    $GroupsXML
+                }
+            }
+        }
+        catch {
+            Write-Verbose "[Get-GroupsXML] Error parsing $TargetGroupsXMLPath : $_"
+        }
+    }
+
+    END {
+        # remove the SYSVOL mappings
+        $MappedPaths.Keys | ForEach-Object { Remove-RemoteConnection -Path $_ }
+    }
+}
+
+function Get-DomainGPO {
+<#
+.SYNOPSIS
+
+Return all GPOs or specific GPO objects in AD.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: Get-DomainSearcher, Get-DomainComputer, Get-DomainUser, Get-DomainOU, Get-NetComputerSiteName, Get-DomainSite, Get-DomainObject, Convert-LDAPProperty  
+
+.DESCRIPTION
+
+Builds a directory searcher object using Get-DomainSearcher, builds a custom
+LDAP filter based on targeting/filter parameters, and searches for all objects
+matching the criteria. To only return specific properties, use
+"-Properties samaccountname,usnchanged,...". By default, all GPO objects for
+the current domain are returned. To enumerate all GPOs that are applied to
+a particular machine, use -ComputerName X.
+
+.PARAMETER Identity
+
+A display name (e.g. 'Test GPO'), DistinguishedName (e.g. 'CN={F260B76D-55C8-46C5-BEF1-9016DD98E272},CN=Policies,CN=System,DC=testlab,DC=local'),
+GUID (e.g. '10ec320d-3111-4ef4-8faf-8f14f4adc789'), or GPO name (e.g. '{F260B76D-55C8-46C5-BEF1-9016DD98E272}'). Wildcards accepted.
+
+.PARAMETER ComputerIdentity
+
+Return all GPO objects applied to a given computer identity (name, dnsname, DistinguishedName, etc.).
+
+.PARAMETER UserIdentity
+
+Return all GPO objects applied to a given user identity (name, SID, DistinguishedName, etc.).
+
+.PARAMETER Domain
+
+Specifies the domain to use for the query, defaults to the current domain.
+
+.PARAMETER LDAPFilter
+
+Specifies an LDAP query string that is used to filter Active Directory objects.
+
+.PARAMETER Properties
+
+Specifies the properties of the output object to retrieve from the server.
+
+.PARAMETER SearchBase
+
+The LDAP source to search through, e.g. "LDAP://OU=secret,DC=testlab,DC=local"
+Useful for OU queries.
+
+.PARAMETER Server
+
+Specifies an Active Directory server (domain controller) to bind to.
+
+.PARAMETER SearchScope
+
+Specifies the scope to search under, Base/OneLevel/Subtree (default of Subtree).
+
+.PARAMETER ResultPageSize
+
+Specifies the PageSize to set for the LDAP searcher object.
+
+.PARAMETER ServerTimeLimit
+
+Specifies the maximum amount of time the server spends searching. Default of 120 seconds.
+
+.PARAMETER SecurityMasks
+
+Specifies an option for examining security information of a directory object.
+One of 'Dacl', 'Group', 'None', 'Owner', 'Sacl'.
+
+.PARAMETER Tombstone
+
+Switch. Specifies that the searcher should also return deleted/tombstoned objects.
+
+.PARAMETER FindOne
+
+Only return one result object.
+
+.PARAMETER Credential
+
+A [Management.Automation.PSCredential] object of alternate credentials
+for connection to the target domain.
+
+.PARAMETER Raw
+
+Switch. Return raw results instead of translating the fields into a custom PSObject.
+
+.EXAMPLE
+
+Get-DomainGPO -Domain testlab.local
+
+Return all GPOs for the testlab.local domain
+
+.EXAMPLE
+
+Get-DomainGPO -ComputerName windows1.testlab.local
+
+Returns all GPOs applied windows1.testlab.local
+
+.EXAMPLE
+
+"{F260B76D-55C8-46C5-BEF1-9016DD98E272}","Test GPO" | Get-DomainGPO
+
+Return the GPOs with the name of "{F260B76D-55C8-46C5-BEF1-9016DD98E272}" and the display
+name of "Test GPO"
+
+.EXAMPLE
+
+Get-DomainGPO -LDAPFilter '(!primarygroupid=513)' -Properties samaccountname,lastlogon
+
+.EXAMPLE
+
+$SecPassword = ConvertTo-SecureString 'Password123!' -AsPlainText -Force
+$Cred = New-Object System.Management.Automation.PSCredential('TESTLAB\dfm.a', $SecPassword)
+Get-DomainGPO -Credential $Cred
+
+.OUTPUTS
+
+PowerView.GPO
+
+Custom PSObject with translated GPO property fields.
+
+PowerView.GPO.Raw
+
+The raw DirectoryServices.SearchResult object, if -Raw is enabled.
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+    [OutputType('PowerView.GPO')]
+    [OutputType('PowerView.GPO.Raw')]
+    [CmdletBinding(DefaultParameterSetName = 'None')]
+    Param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('DistinguishedName', 'SamAccountName', 'Name')]
+        [String[]]
+        $Identity,
+
+        [Parameter(ParameterSetName = 'ComputerIdentity')]
+        [Alias('ComputerName')]
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $ComputerIdentity,
+
+        [Parameter(ParameterSetName = 'UserIdentity')]
+        [Alias('UserName')]
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $UserIdentity,
+
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $Domain,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('Filter')]
+        [String]
+        $LDAPFilter,
+
+        [ValidateNotNullOrEmpty()]
+        [String[]]
+        $Properties,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('ADSPath')]
+        [String]
+        $SearchBase,
+
+        [ValidateNotNullOrEmpty()]
+        [Alias('DomainController')]
+        [String]
+        $Server,
+
+        [ValidateSet('Base', 'OneLevel', 'Subtree')]
+        [String]
+        $SearchScope = 'Subtree',
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ResultPageSize = 200,
+
+        [ValidateRange(1, 10000)]
+        [Int]
+        $ServerTimeLimit,
+
+        [ValidateSet('Dacl', 'Group', 'None', 'Owner', 'Sacl')]
+        [String]
+        $SecurityMasks,
+
+        [Switch]
+        $Tombstone,
+
+        [Alias('ReturnOne')]
+        [Switch]
+        $FindOne,
+
+        [Management.Automation.PSCredential]
+        [Management.Automation.CredentialAttribute()]
+        $Credential = [Management.Automation.PSCredential]::Empty,
+
+        [Switch]
+        $Raw
+    )
+
+    BEGIN {
+        $SearcherArguments = @{}
+        if ($PSBoundParameters['Domain']) { $SearcherArguments['Domain'] = $Domain }
+        if ($PSBoundParameters['Properties']) { $SearcherArguments['Properties'] = $Properties }
+        if ($PSBoundParameters['SearchBase']) { $SearcherArguments['SearchBase'] = $SearchBase }
+        if ($PSBoundParameters['Server']) { $SearcherArguments['Server'] = $Server }
+        if ($PSBoundParameters['SearchScope']) { $SearcherArguments['SearchScope'] = $SearchScope }
+        if ($PSBoundParameters['ResultPageSize']) { $SearcherArguments['ResultPageSize'] = $ResultPageSize }
+        if ($PSBoundParameters['ServerTimeLimit']) { $SearcherArguments['ServerTimeLimit'] = $ServerTimeLimit }
+        if ($PSBoundParameters['SecurityMasks']) { $SearcherArguments['SecurityMasks'] = $SecurityMasks }
+        if ($PSBoundParameters['Tombstone']) { $SearcherArguments['Tombstone'] = $Tombstone }
+        if ($PSBoundParameters['Credential']) { $SearcherArguments['Credential'] = $Credential }
+        $GPOSearcher = Get-DomainSearcher @SearcherArguments
+    }
+
+    PROCESS {
+        if ($GPOSearcher) {
+            if ($PSBoundParameters['ComputerIdentity'] -or $PSBoundParameters['UserIdentity']) {
+                $GPOAdsPaths = @()
+                if ($SearcherArguments['Properties']) {
+                    $OldProperties = $SearcherArguments['Properties']
+                }
+                $SearcherArguments['Properties'] = 'distinguishedname,dnshostname'
+                $TargetComputerName = $Null
+
+                if ($PSBoundParameters['ComputerIdentity']) {
+                    $SearcherArguments['Identity'] = $ComputerIdentity
+                    $Computer = Get-DomainComputer @SearcherArguments -FindOne | Select-Object -First 1
+                    if(-not $Computer) {
+                        Write-Verbose "[Get-DomainGPO] Computer '$ComputerIdentity' not found!"
+                    }
+                    $ObjectDN = $Computer.distinguishedname
+                    $TargetComputerName = $Computer.dnshostname
+                }
+                else {
+                    $SearcherArguments['Identity'] = $UserIdentity
+                    $User = Get-DomainUser @SearcherArguments -FindOne | Select-Object -First 1
+                    if(-not $User) {
+                        Write-Verbose "[Get-DomainGPO] User '$UserIdentity' not found!"
+                    }
+                    $ObjectDN = $User.distinguishedname
+                }
+
+                # extract all OUs the target user/computer is a part of
+                $ObjectOUs = @()
+                $ObjectOUs += $ObjectDN.split(',') | ForEach-Object {
+                    if($_.startswith('OU=')) {
+                        $ObjectDN.SubString($ObjectDN.IndexOf("$($_),"))
+                    }
+                }
+                Write-Verbose "[Get-DomainGPO] object OUs: $ObjectOUs"
+
+                if ($ObjectOUs) {
+                    # find all the GPOs linked to the user/computer's OUs
+                    $SearcherArguments.Remove('Properties')
+                    $InheritanceDisabled = $False
+                    ForEach($ObjectOU in $ObjectOUs) {
+                        $SearcherArguments['Identity'] = $ObjectOU
+                        $GPOAdsPaths += Get-DomainOU @SearcherArguments | ForEach-Object {
+                            # extract any GPO links for this particular OU the computer is a part of
+                            if ($_.gplink) {
+                                $_.gplink.split('][') | ForEach-Object {
+                                    if ($_.startswith('LDAP')) {
+                                        $Parts = $_.split(';')
+                                        $GpoDN = $Parts[0]
+                                        $Enforced = $Parts[1]
+
+                                        if ($InheritanceDisabled) {
+                                            # if inheritance has already been disabled and this GPO is set as "enforced"
+                                            #   then add it, otherwise ignore it
+                                            if ($Enforced -eq 2) {
+                                                $GpoDN
+                                            }
+                                        }
+                                        else {
+                                            # inheritance not marked as disabled yet
+                                            $GpoDN
+                                        }
+                                    }
+                                }
+                            }
+
+                            # if this OU has GPO inheritence disabled, break so additional OUs aren't processed
+                            if ($_.gpoptions -eq 1) {
+                                $InheritanceDisabled = $True
+                            }
+                        }
+                    }
+                }
+
+                if ($TargetComputerName) {
+                    # find all the GPOs linked to the computer's site
+                    $ComputerSite = (Get-NetComputerSiteName -ComputerName $TargetComputerName).SiteName
+                    if($ComputerSite -and ($ComputerSite -notlike 'Error*')) {
+                        $SearcherArguments['Identity'] = $ComputerSite
+                        $GPOAdsPaths += Get-DomainSite @SearcherArguments | ForEach-Object {
+                            if($_.gplink) {
+                                # extract any GPO links for this particular site the computer is a part of
+                                $_.gplink.split('][') | ForEach-Object {
+                                    if ($_.startswith('LDAP')) {
+                                        $_.split(';')[0]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                # find any GPOs linked to the user/computer's domain
+                $ObjectDomainDN = $ObjectDN.SubString($ObjectDN.IndexOf('DC='))
+                $SearcherArguments.Remove('Identity')
+                $SearcherArguments.Remove('Properties')
+                $SearcherArguments['LDAPFilter'] = "(objectclass=domain)(distinguishedname=$ObjectDomainDN)"
+                $GPOAdsPaths += Get-DomainObject @SearcherArguments | ForEach-Object {
+                    if($_.gplink) {
+                        # extract any GPO links for this particular domain the computer is a part of
+                        $_.gplink.split('][') | ForEach-Object {
+                            if ($_.startswith('LDAP')) {
+                                $_.split(';')[0]
+                            }
+                        }
+                    }
+                }
+                Write-Verbose "[Get-DomainGPO] GPOAdsPaths: $GPOAdsPaths"
+
+                # restore the old properites to return, if set
+                if ($OldProperties) { $SearcherArguments['Properties'] = $OldProperties }
+                else { $SearcherArguments.Remove('Properties') }
+                $SearcherArguments.Remove('Identity')
+
+                $GPOAdsPaths | Where-Object {$_ -and ($_ -ne '')} | ForEach-Object {
+                    # use the gplink as an ADS path to enumerate all GPOs for the computer
+                    $SearcherArguments['SearchBase'] = $_
+                    $SearcherArguments['LDAPFilter'] = "(objectCategory=groupPolicyContainer)"
+                    Get-DomainObject @SearcherArguments | ForEach-Object {
+                        if ($PSBoundParameters['Raw']) {
+                            $_.PSObject.TypeNames.Insert(0, 'PowerView.GPO.Raw')
+                        }
+                        else {
+                            $_.PSObject.TypeNames.Insert(0, 'PowerView.GPO')
+                        }
+                        $_
+                    }
+                }
+            }
+            else {
+                $IdentityFilter = ''
+                $Filter = ''
+                $Identity | Where-Object {$_} | ForEach-Object {
+                    $IdentityInstance = $_.Replace('(', '\28').Replace(')', '\29')
+                    if ($IdentityInstance -match 'LDAP://|^CN=.*') {
+                        $IdentityFilter += "(distinguishedname=$IdentityInstance)"
+                        if ((-not $PSBoundParameters['Domain']) -and (-not $PSBoundParameters['SearchBase'])) {
+                            # if a -Domain isn't explicitly set, extract the object domain out of the distinguishedname
+                            #   and rebuild the domain searcher
+                            $IdentityDomain = $IdentityInstance.SubString($IdentityInstance.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                            Write-Verbose "[Get-DomainGPO] Extracted domain '$IdentityDomain' from '$IdentityInstance'"
+                            $SearcherArguments['Domain'] = $IdentityDomain
+                            $GPOSearcher = Get-DomainSearcher @SearcherArguments
+                            if (-not $GPOSearcher) {
+                                Write-Warning "[Get-DomainGPO] Unable to retrieve domain searcher for '$IdentityDomain'"
+                            }
+                        }
+                    }
+                    elseif ($IdentityInstance -match '{.*}') {
+                        $IdentityFilter += "(name=$IdentityInstance)"
+                    }
+                    else {
+                        try {
+                            $GuidByteString = (-Join (([Guid]$IdentityInstance).ToByteArray() | ForEach-Object {$_.ToString('X').PadLeft(2,'0')})) -Replace '(..)','\$1'
+                            $IdentityFilter += "(objectguid=$GuidByteString)"
+                        }
+                        catch {
+                            $IdentityFilter += "(displayname=$IdentityInstance)"
+                        }
+                    }
+                }
+                if ($IdentityFilter -and ($IdentityFilter.Trim() -ne '') ) {
+                    $Filter += "(|$IdentityFilter)"
+                }
+
+                if ($PSBoundParameters['LDAPFilter']) {
+                    Write-Verbose "[Get-DomainGPO] Using additional LDAP filter: $LDAPFilter"
+                    $Filter += "$LDAPFilter"
+                }
+
+                $GPOSearcher.filter = "(&(objectCategory=groupPolicyContainer)$Filter)"
+                Write-Verbose "[Get-DomainGPO] filter string: $($GPOSearcher.filter)"
+
+                if ($PSBoundParameters['FindOne']) { $Results = $GPOSearcher.FindOne() }
+                else { $Results = $GPOSearcher.FindAll() }
+                $Results | Where-Object {$_} | ForEach-Object {
+                    if ($PSBoundParameters['Raw']) {
+                        # return raw result objects
+                        $GPO = $_
+                        $GPO.PSObject.TypeNames.Insert(0, 'PowerView.GPO.Raw')
+                    }
+                    else {
+                        if ($PSBoundParameters['SearchBase'] -and ($SearchBase -Match '^GC://')) {
+                            $GPO = Convert-LDAPProperty -Properties $_.Properties
+                            try {
+                                $GPODN = $GPO.distinguishedname
+                                $GPODomain = $GPODN.SubString($GPODN.IndexOf('DC=')) -replace 'DC=','' -replace ',','.'
+                                $gpcfilesyspath = "\\$GPODomain\SysVol\$GPODomain\Policies\$($GPO.cn)"
+                                $GPO | Add-Member Noteproperty 'gpcfilesyspath' $gpcfilesyspath
+                            }
+                            catch {
+                                Write-Verbose "[Get-DomainGPO] Error calculating gpcfilesyspath for: $($GPO.distinguishedname)"
+                            }
+                        }
+                        else {
+                            $GPO = Convert-LDAPProperty -Properties $_.Properties
+                        }
+                        $GPO.PSObject.TypeNames.Insert(0, 'PowerView.GPO')
+                    }
+                    $GPO
+                }
+                if ($Results) {
+                    try { $Results.dispose() }
+                    catch {
+                        Write-Verbose "[Get-DomainGPO] Error disposing of the Results object: $_"
+                    }
+                }
+                $GPOSearcher.dispose()
+            }
+        }
     }
 }
 
