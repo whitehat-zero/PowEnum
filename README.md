@@ -22,7 +22,7 @@ There are two choices. The first uses the runas command (this must be executed p
 | Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins <br>Domain Users<br>Domain Groups<br>Schema Admin<br>Account Operators<br>Backup Operators<br>Print Operators<br>Server Operators<br>Group Policy Creators Owners<br>Cryptographic Operators<br>AD Group Managers<br>AdminCount=1<br><br> All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts<br>Potential Fileservers |
 | Roasting | Kerberoast Service Accounts (Accounts w/ SPN)<br>ASREPRoast User Accounts (No Preauth Req) |
 | Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
-| SYSVOL | Group Policy Passwords<br>SYSVOL Script Files (potential hardcoded credentials) |
+| SYSVOL | Group Policy Passwords<br>SYSVOL Script Files (potential hardcoded credentials)<br>All Local Group Membership Modifications (GPO or GPP) |
 | Forest | Domain Trusts<br>Foreign [Domain] Users<br>Foreign [Domain] Group Members |
 | LargeEnv | Basic Enumeration without:<br>Get-DomainUser<br>Get-DomainGroup<br>Get-DomainComputer|
 
@@ -30,7 +30,7 @@ There are two choices. The first uses the runas command (this must be executed p
 
 ### Detection
   - This enumeration will generate suspicious traffic between the PowEnum system and the target DC(s). If there are security products watching traffic to the DC(s) (i.e. Microsoft ATA) PowEnum will likely get flagged. For more reading about what ATA is detecting and not detecting:<br>https://media.defcon.org/DEF%20CON%2025/DEF%20CON%2025%20presentations/DEFCON-25-Chris-Thompson-MS-Just-Gave-The-Blue-Teams-Tactical-Nukes-UPDATED.pdf
-  - Kerberoasting detection techniques are highlighted in these articles:<br>https://adsecurity.org/?p=3458<br>https://adsecurity.org/?p=3513 
+  - Kerberoasting detection techniques are highlighted in these articles:<br>Detecting Kerberoasting Activity - https://adsecurity.org/?p=3458<br>Detecting Kerberoasting Activity Part 2 – Creating a Kerberoast Service Account Honeypot- https://adsecurity.org/?p=3513 
 
 ### Mitigations
 | Mode | Mitigations |
