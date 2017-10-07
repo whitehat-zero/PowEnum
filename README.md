@@ -22,7 +22,7 @@ There are two choices. The first uses the runas command (this must be executed p
 | Basic | Domain Admins<br>Enterprise Admins<br>Built-In Admins<br>DC Local Admins <br>Domain Users<br>Domain Groups<br>Schema Admin<br>Account Operators<br>Backup Operators<br>Print Operators<br>Server Operators<br>Group Policy Creators Owners<br>Cryptographic Operators<br>AD Group Managers<br>AdminCount=1<br><br> All [DC Aware] Net Sessions<br>Domain Controllers<br>Domain Computer IPs<br>Domain Computers<br>Subnets<br>DNSRecords<br>WinRM Enabled Hosts<br>Potential Fileservers |
 | Roasting | Kerberoast Service Accounts (Accounts w/ SPN)<br>ASREPRoast User Accounts (No Preauth Req) |
 | Special | Disabled Accounts<br>Password Not Required<br>Password Doesn't Expire<br>Password Doesn't Expire & Not Required <br>Smartcard Required |
-| SYSVOL | Group Policy Passwords<br>Potential SYSVOL Logon Scripts |
+| SYSVOL | Group Policy Passwords<br>SYSVOL Script Files (potential hardcoded credentials) |
 | Forest | Domain Trusts<br>Foreign [Domain] Users<br>Foreign [Domain] Group Members |
 | LargeEnv | Basic Enumeration without:<br>Get-DomainUser<br>Get-DomainGroup<br>Get-DomainComputer|
 
@@ -38,6 +38,6 @@ There are two choices. The first uses the runas command (this must be executed p
 | Basic | Net Cease - Hardening Net Session Enumeration<br>https://gallery.technet.microsoft.com/Net-Cease-Blocking-Net-1e8dcb5<br>SAMRi10 - Hardening SAM Remote Access in Windows 10/Server 2016<br>https://gallery.technet.microsoft.com/SAMRi10-Hardening-Remote-48d94b5b<br>Active Directory: Controlling Object Visibility<br>https://social.technet.microsoft.com/wiki/contents/articles/29558.active-directory-controlling-object-visibility-list-object-mode.aspx<br>http://windowsitpro.com/active-directory/hiding-active-directory-objects-and-attributes |
 | Roasting | Kerberoasst mitigations revolve around using strong passwords or GMSA for affected accounts<br>https://adsecurity.org/?p=2293<br>ASREPRoast mitigations revolve around using strong passwords or not checking "‘Do Not Require Kerberos Preauthentication" |
 | Special | See Basic  |
-| SYSVOL | Install KB2962486  and remove affected xml files<br>https://adsecurity.org/?p=2288  |
+| SYSVOL | GPP Password Files - Install KB2962486  and remove affected xml files (https://adsecurity.org/?p=2288)<br> SYSVOL Scripts - Monitor for changes to SYSVOL and remove affected files |
 | Forest | See Basic |
 | LargeEnv | See Basic |
