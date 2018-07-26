@@ -484,7 +484,7 @@ function PowEnum-AdminCount {
 function PowEnum-Users {
 	try {
 		Write-Host "[ ]All Domain Users (this could take a while) | " -NoNewLine
-		$temp = Get-DomainUser -Domain $FQDN -Server $BestDomainControllerIP | 
+		$temp = Get-DomainUser -Domain $FQDN -Server $BestDomainControllerIP -Properties samaccountname, description, memberof, pwdlastset, admincount, distinguishedname, userprincipalname, serviceprincipalname, useraccountcontrol, iscriticalsystemobject  | 
 			Select-Object samaccountname, description, @{N="MemberOf";E={ 
 				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN -Server $BestDomainControllerIP}; 
 				$ConvertedGroupNames -join "; "}}, 
@@ -496,7 +496,7 @@ function PowEnum-Users {
 function PowEnum-Groups {
 	try {
 		Write-Host "[ ]All Domain Groups (this could take a while) | " -NoNewLine
-		$temp = Get-DomainGroup -Domain $FQDN -Server $BestDomainControllerIP | Select-Object samaccountname, admincount, description, iscriticalsystemobject, 
+		$temp = Get-DomainGroup -Domain $FQDN -Server $BestDomainControllerIP -Properties samaccountname, admincount, description, iscriticalsystemobject, memberof | Select-Object samaccountname, admincount, description, iscriticalsystemobject, 
 			@{N="MemberOf";E={ 
 			$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN}; 
 			$ConvertedGroupNames -join "; "}}
@@ -507,7 +507,7 @@ function PowEnum-Groups {
 function PowEnum-Computers {
 	try {
 		Write-Host "[ ]All Domain Computers (this could take a while) | " -NoNewLine
-		$temp = Get-DomainComputer -Domain $FQDN -Server $BestDomainControllerIP | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname, 
+		$temp = Get-DomainComputer -Domain $FQDN -Server $BestDomainControllerIP -Properties samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname, memberof | Select-Object samaccountname, dnshostname, operatingsystem, operatingsystemversion, operatingsystemservicepack, lastlogon, badpwdcount, iscriticalsystemobject, distinguishedname, 
 				@{N="MemberOf";E={ 
 				$ConvertedGroupNames = ForEach-Object {$_.MemberOf | Convert-ADName -OutputType NT4 -Domain $FQDN -Server $BestDomainControllerIP}; 
 				$ConvertedGroupNames -join "; "}}
@@ -608,7 +608,7 @@ function PowEnum-WinRM {
 function PowEnum-FillDomainUserTable {
 	try{
 		Write-Host "...Filling Domain User Table | " -NoNewLine
-		$script:DomainUserTable = Get-DomainUser -Domain $FQDN -Server $BestDomainControllerIP | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname, useraccountcontrol
+		$script:DomainUserTable = Get-DomainUser -Domain $FQDN -Server $BestDomainControllerIP -Properties samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname, useraccountcontrol | Select-Object samaccountname, description, pwdlastset, iscriticalsystemobject, admincount, memberof, distinguishedname, useraccountcontrol
 		
 		$count = $script:DomainUserTable | measure-object | select-object -expandproperty Count
 		if($script:DomainUserTable -eq $null){
@@ -12162,3 +12162,4 @@ http://rewtdance.blogspot.com/2012/06/exploiting-windows-2008-group-policy.html
 
     catch { Write-Error $Error[0] }
 }
+
